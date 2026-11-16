@@ -247,13 +247,14 @@ HP petugas (dashboard, tombol "Foto")
 
 ### Pemasangan (sekali, oleh pengelola)
 
-1. **Buat folder Google Drive** untuk foto, misalnya `Foto Dokumentasi CWIS-06`. Buka foldernya, lalu salin **ID folder**, yaitu bagian akhir alamat setelah `/folders/`.
-2. **Buat Google Sheet baru**, misalnya `Data Foto CWIS-06`. Buka **Extensions > Apps Script**.
+1. **Buat folder Google Drive** untuk foto, misalnya `Foto Dokumentasi CWIS-06`. Klik kanan foldernya > **Bagikan** > Akses umum > **Siapa saja yang memiliki link**, peran **Pelihat**. Lalu salin **ID folder**, yaitu bagian akhir alamat setelah `/folders/`.
+2. **Buat Google Sheet baru**, misalnya `Data Foto CWIS-06`. Buka **Extensions > Apps Script** dari dalam Sheet itu. Jika Anda terlanjur membuat proyek Apps Script dari tempat lain (script.google.com atau Drive), isi `SHEET_ID` pada langkah 4.
 3. Hapus isi editor, lalu tempel seluruh isi `foto/Code.gs` dari repo ini.
-4. Di bagian atas script, isi dua pengaturan:
+4. Di bagian atas script, isi pengaturan berikut:
    - `FOLDER_ID`: ID folder dari langkah 1.
-   - `KODE_AKSES`: kode rahasia yang akan diketik petugas. Pilih kode yang tidak mudah ditebak.
-5. Pilih fungsi `setup` di menu atas editor, klik **Run**, lalu setujui izin akses yang diminta (Drive dan Sheets). Sheet bernama `Foto` akan terisi judul kolom.
+   - `SHEET_ID`: ID Google Sheet (bagian alamat di antara `/d/` dan `/edit`). Kosongkan hanya jika script dibuat lewat menu Extensions di dalam Sheet.
+   - `KODE_AKSES`: kode rahasia yang diketik petugas. Pilih kode yang tidak mudah ditebak. Untuk beberapa tim, pakai daftar kode (lihat "Kode akses per tim" di bawah).
+5. Pilih fungsi `setup` di menu atas editor, klik **Run**, lalu setujui izin akses yang diminta (Drive dan Sheets). Sheet bernama `Dokumentasi Lapangan` akan terisi judul kolom.
 6. Klik **Deploy > New deployment**, pilih jenis **Web app**, lalu isi:
    - Execute as: **Me**
    - Who has access: **Anyone**
@@ -281,6 +282,24 @@ Soal lokasi:
 - Untuk **foto dari galeri**, GPS yang terbaca adalah posisi petugas saat mengunggah, bukan posisi saat memotret. Isi ID manhole atau pipa, lalu pilih "Titik manhole/pipa di atas" supaya foto ditempatkan di titik itu.
 - Foto otomatis diperkecil di HP sebelum dikirim (sisi terpanjang 1600 px), jadi hemat kuota dan cepat.
 
+### Foto kegiatan terbaru
+
+Tombol **Terbaru** di kanan atas peta membuka daftar 12 foto terakhir lengkap dengan gambar kecil, waktu, petugas, ID, dan keterangan. Mengetuk satu foto memperbesar peta ke lokasinya dan membuka fotonya. Jendela ini juga muncul otomatis sekali per sesi saat dashboard dibuka (kecuali saat panduan pertama kali tampil). Untuk mematikannya, ubah `FOTO_AUTO` di awal `js/app.js` menjadi `false`.
+
+### Kode akses per tim
+
+`KODE_AKSES` bisa berupa daftar, sehingga tiap tim punya kode sendiri:
+
+```js
+const KODE_AKSES = { 'kode-tim-a': 'Tim Genuk', 'kode-tim-b': 'Kontraktor', 'kode-tim-c': 'Konsultan' };
+```
+
+Nama tim dicatat di kolom `tim` pada Sheet dan tampil di daftar foto terbaru. Jika ada lebih dari satu tim, muncul pilihan untuk menampilkan foto dari tim tertentu saja. Kode yang diketik petugas tidak pernah disimpan atau ditampilkan, hanya nama timnya. Cabut akses suatu tim dengan menghapus kodenya dari daftar, lalu deploy versi baru.
+
+### Di mana keterangan tersimpan
+
+Keterangan yang diisi petugas tersimpan di dua tempat: kolom `keterangan` pada Google Sheet (bersama petugas, ID, koordinat, dan waktu), dan deskripsi file di Google Drive (klik kanan file > Detail). Keterangan juga tampil di popup foto dan di daftar foto terbaru.
+
 ### Mengelola foto
 
 - **Menyembunyikan foto** dari peta: di Google Sheet `Foto`, ubah kolom `tampil` dari TRUE menjadi FALSE. File di Drive tetap ada. Perubahan tampil dalam sekitar 1 menit.
@@ -302,9 +321,11 @@ Soal lokasi:
 | Gejala | Penyebab dan solusi |
 |---|---|
 | Tombol Foto tidak muncul | `FOTO_URL` di `app.js` masih kosong, atau perubahan belum ter-push. |
+| `Cannot read properties of null (reading 'getSheetByName')` saat menjalankan `setup` | Script tidak terhubung ke Google Sheet. Isi `SHEET_ID` lalu jalankan `setup` lagi. |
 | "Kode akses salah" | Kode di formulir berbeda dengan `KODE_AKSES` di Apps Script. Periksa spasi di awal atau akhir. |
 | "Gagal mengunggah" tanpa pesan jelas | Sinyal lemah, atau deployment Web app bukan "Anyone". Cek pengaturan deploy dan coba buka alamat `/exec` di browser. Hasilnya harus berupa teks JSON (misalnya `[]`). |
 | Foto terunggah tapi ikon tidak muncul | Tunggu 1 menit lalu muat ulang. Cek kolom `tampil` di Sheet dan pastikan layer "Foto dokumentasi" tercentang. |
+| `Access denied: DriveApp` saat mengunggah | Google menolak pembagian file otomatis. Versi script terbaru tetap berhasil menyimpan. Bagikan **folder** Drive sebagai "Siapa saja yang memiliki link - Pelihat" supaya semua foto di dalamnya terbaca dashboard. |
 | Ikon muncul tapi gambar kosong di popup | File di Drive belum dibagikan sebagai "siapa saja dengan tautan" (sering karena pembatasan Workspace). |
 | GPS tidak tersedia | Aktifkan GPS dan izin lokasi untuk browser, atau pakai titik manhole atau pipa. |
 
