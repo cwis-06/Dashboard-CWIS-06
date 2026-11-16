@@ -30,6 +30,7 @@ Buka alamat dashboard di browser (Chrome, Edge, Firefox, atau Safari, di kompute
 | Progres per zona | Klik satu zona untuk memfilter dan memperbesar peta ke zona itu. |
 | Popup | Klik pipa atau manhole untuk melihat lokasi, elevasi, kedalaman, dan status progres. |
 | Ukur jarak dan luas | Klik tombol penggaris di kanan atas peta, pilih **Jarak** atau **Luas**, lalu klik titik demi titik. Hasil tampil di panel. **Urungkan**, **Hapus**, atau **Tutup** (Esc) untuk mengatur ukuran. |
+| Foto dokumentasi | Ikon kamera di peta adalah foto dari petugas lapangan. Klik ikonnya untuk melihat foto, waktu, petugas, dan keterangan. Petugas mengunggah lewat tombol **Foto** di kanan atas peta (lihat Bagian B8). |
 | Panduan | Tombol **Panduan** di header membuka tutorial langkah demi langkah. Tutorial juga muncul otomatis saat pertama kali dashboard dibuka. |
 | GPS | Tombol lokasi di kanan atas peta menampilkan posisi Anda (butuh izin lokasi dari browser). |
 | Tema | Tombol **Tema** mengganti mode terang atau gelap. |
@@ -205,15 +206,107 @@ git push
 
 Agar otomatis, ganti baris `git add data/*.geojson index.html README.md` di `update_dashboard.bat` dengan `git add -A`.
 
+## B6. Pemecahan masalah
+
+| Gejala | Penyebab dan solusi |
+|---|---|
+| Dashboard tidak berubah setelah update | Pastikan sudah **Save Edits** di QGIS, lalu cek pesan "Tidak ada perubahan data baru". Muat ulang dengan Ctrl+F5 dan tunggu 1-2 menit. |
+| Peta kosong, panel menunjukkan "-" dan 0% | Ada error JavaScript atau file data tidak termuat. Buka F12 > Console dan lihat pesan merahnya. Pastikan `data/v_lateral_pipe.geojson` dan `data/v_manhole.geojson` ada. |
+| Layer baru tidak muncul | Layer opsional hanya muncul bila file GeoJSON-nya ada di `data/`. Cek pesan "Dilewati" saat skrip berjalan. |
+| `Folder ini bukan repo Git` | `update_dashboard.bat` harus berada di folder hasil `git clone`, satu folder dengan `index.html`. |
+| `ogr2ogr tidak ditemukan` atau `Folder QGIS tidak ditemukan` | QGIS harus terpasang di `C:\Program Files\QGIS ...`. Jika di lokasi lain, ubah baris pencarian QGIS di skrip. |
+| `psql tidak ditemukan` | Penghitungan ulang kolom otomatis dilewati. Pasang PostgreSQL client tools, atau abaikan jika otomasi tidak dipakai. |
+| `Push ditolak` atau `fetch first` | Ada commit baru dari orang lain. Jalankan `git pull --rebase --autostash`, lalu `git push`. |
+| `file exceeds GitHub's file size limit of 100 MB` | Ada file besar (biasanya TIFF) ikut ter-commit. Pastikan `.gitignore` berisi `*.tif` dan `*.tiff`, lalu batalkan commit dengan `git reset --soft HEAD~1`. |
+| `Authentication failed` atau `403` | Login GitHub kedaluwarsa atau tidak punya hak tulis. Login ulang, atau gunakan Personal Access Token. |
+| Ortofoto tidak muncul (404 di tab Network) | Format dan jalur tile harus `tiles/ortho/{z}/{x}/{y}.jpg`. Cek ekstensi (`.jpg`, bukan `.png`) dan zoom 12-20 di folder `tiles/ortho`. |
+| Save Edits di QGIS ditolak: "Tahap ... tidak sah" | `stage_code` tidak ada di tabel `ref_stage`. Pilih dari dropdown atau gunakan salah satu kode di tabel B3. |
+
 ## B7. Pengaturan yang bisa disesuaikan
 
 | Pengaturan | Lokasi |
 |---|---|
+| Alamat Apps Script untuk foto | `FOTO_URL` di awal `js/app.js` |
 | Zoom mulai tampil house inlet | `HI_MINZ` di awal `js/app.js` (default 18) |
 | Daftar manhole paket sebelah | Daftar `REF` di `js/app.js`, atau kolom `is_reference` di database |
 | Koneksi database dan SRID | Blok pengaturan di awal `update_dashboard.bat` |
 | Warna, huruf, tata letak | `css/style.css` |
 | Jalur dan zoom tile ortofoto | Baris `ortho` di `js/app.js` |
+
+## B8. Foto dokumentasi lapangan
+
+Petugas lapangan bisa mengunggah foto langsung dari HP. Foto disimpan di Google Drive, lokasinya dicatat di Google Sheet, dan dashboard menampilkannya sebagai ikon kamera di peta. Tidak perlu menyentuh repo setiap ada foto baru.
+
+```
+HP petugas (dashboard, tombol "Foto")
+   -> Google Apps Script (foto/Code.gs)
+        -> menyimpan foto ke folder Google Drive
+        -> mencatat lokasi dan keterangan di Google Sheet
+   <- dashboard membaca daftar foto dari Apps Script dan menampilkannya di peta
+```
+
+### Pemasangan (sekali, oleh pengelola)
+
+1. **Buat folder Google Drive** untuk foto, misalnya `Foto Dokumentasi CWIS-06`. Buka foldernya, lalu salin **ID folder**, yaitu bagian akhir alamat setelah `/folders/`.
+2. **Buat Google Sheet baru**, misalnya `Data Foto CWIS-06`. Buka **Extensions > Apps Script**.
+3. Hapus isi editor, lalu tempel seluruh isi `foto/Code.gs` dari repo ini.
+4. Di bagian atas script, isi dua pengaturan:
+   - `FOLDER_ID`: ID folder dari langkah 1.
+   - `KODE_AKSES`: kode rahasia yang akan diketik petugas. Pilih kode yang tidak mudah ditebak.
+5. Pilih fungsi `setup` di menu atas editor, klik **Run**, lalu setujui izin akses yang diminta (Drive dan Sheets). Sheet bernama `Foto` akan terisi judul kolom.
+6. Klik **Deploy > New deployment**, pilih jenis **Web app**, lalu isi:
+   - Execute as: **Me**
+   - Who has access: **Anyone**
+7. Klik **Deploy** dan salin **Web app URL** (berakhiran `/exec`).
+8. Di `js/app.js`, isi baris di bagian atas file:
+   ```js
+   const FOTO_URL='https://script.google.com/macros/s/XXXX/exec';
+   ```
+9. Kirim perubahan ke GitHub (`git add -A`, `git commit`, `git push`), lalu muat ulang dashboard dengan Ctrl+F5. Tombol **Foto** dan layer **Foto dokumentasi** akan muncul.
+
+Jika `FOTO_URL` dikosongkan, fitur foto tidak tampil sama sekali.
+
+### Cara petugas memakai
+
+1. Buka dashboard di HP, atau langsung lewat tautan `https://cwis-06.github.io/Dashboard-CWIS-06/#unggah` (tautan ini bisa disimpan sebagai bookmark atau dijadikan QR code).
+2. Ketuk tombol **Foto** di kanan atas peta. Izinkan akses lokasi dan kamera bila diminta.
+3. Isi **nama petugas** dan **kode akses**. Keduanya diingat di HP itu untuk lain kali.
+4. Isi **ID manhole atau pipa** (opsional, ada saran otomatis) dan keterangan singkat.
+5. Ketuk **Ambil foto** (atau **Pilih dari galeri**), lalu tunggu status lokasi menunjukkan GPS didapat.
+6. Ketuk **Unggah**. Peta otomatis memperbesar ke lokasi foto yang baru.
+
+Soal lokasi:
+
+- **Ambil foto langsung di lokasi** dan pilih "Lokasi saya sekarang (GPS)". Ini cara paling akurat.
+- Untuk **foto dari galeri**, GPS yang terbaca adalah posisi petugas saat mengunggah, bukan posisi saat memotret. Isi ID manhole atau pipa, lalu pilih "Titik manhole/pipa di atas" supaya foto ditempatkan di titik itu.
+- Foto otomatis diperkecil di HP sebelum dikirim (sisi terpanjang 1600 px), jadi hemat kuota dan cepat.
+
+### Mengelola foto
+
+- **Menyembunyikan foto** dari peta: di Google Sheet `Foto`, ubah kolom `tampil` dari TRUE menjadi FALSE. File di Drive tetap ada. Perubahan tampil dalam sekitar 1 menit.
+- **Mengubah kode akses**: ubah `KODE_AKSES` di Apps Script, lalu **Deploy > Manage deployments > Edit (ikon pensil) > Version: New version > Deploy**. Alamat web app tetap sama.
+- **Setiap perubahan isi script** perlu langkah "New version" di atas supaya berlaku.
+- Foto dan Sheet ada di akun Google pembuat script, jadi gunakan akun milik tim yang akan terus dipakai, bukan akun pribadi yang bisa berhenti dipakai.
+
+### Hal yang perlu diperhatikan
+
+- **Foto bersifat publik.** Agar bisa tampil di dashboard, file di Drive dibagikan sebagai "siapa saja yang memiliki tautan", dan dashboard sendiri publik. Hindari memotret wajah orang atau plat nomor. Nama petugas dan keterangan juga ikut tampil di popup.
+- **Kode akses melindungi unggahan**, bukan tampilan. Orang yang tidak punya kode tidak bisa menambah foto, tetapi siapa pun yang membuka dashboard bisa melihat foto yang sudah ada.
+- Kode akses tidak disimpan di repo, tetapi tersimpan di `Code.gs` pada akun Apps Script Anda. Jangan menempelkannya ke `app.js`.
+- Jika akun Google Anda berada di Google Workspace organisasi, administrator mungkin membatasi pembagian file atau akses "Anyone". Bila foto tidak tampil di dashboard, periksa pengaturan itu.
+- Penyimpanan Drive dihitung dari akun pembuat. Satu foto setelah diperkecil biasanya 300-600 KB.
+- Pengunggahan butuh **https** dan sinyal. Bila gagal di tengah jalan, foto yang sudah terkirim tidak diulang, dan sisanya tetap ada di formulir untuk dicoba lagi.
+
+### Pemecahan masalah foto
+
+| Gejala | Penyebab dan solusi |
+|---|---|
+| Tombol Foto tidak muncul | `FOTO_URL` di `app.js` masih kosong, atau perubahan belum ter-push. |
+| "Kode akses salah" | Kode di formulir berbeda dengan `KODE_AKSES` di Apps Script. Periksa spasi di awal atau akhir. |
+| "Gagal mengunggah" tanpa pesan jelas | Sinyal lemah, atau deployment Web app bukan "Anyone". Cek pengaturan deploy dan coba buka alamat `/exec` di browser. Hasilnya harus berupa teks JSON (misalnya `[]`). |
+| Foto terunggah tapi ikon tidak muncul | Tunggu 1 menit lalu muat ulang. Cek kolom `tampil` di Sheet dan pastikan layer "Foto dokumentasi" tercentang. |
+| Ikon muncul tapi gambar kosong di popup | File di Drive belum dibagikan sebagai "siapa saja dengan tautan" (sering karena pembatasan Workspace). |
+| GPS tidak tersedia | Aktifkan GPS dan izin lokasi untuk browser, atau pakai titik manhole atau pipa. |
 
 ## Struktur folder
 
@@ -223,6 +316,8 @@ Dashboard-CWIS-06/
   css/style.css           tampilan (warna, huruf, mode gelap)
   js/app.js               logika peta, filter, popup
   data/*.geojson          hasil ekspor database (jangan diedit tangan)
+  img/                    logo header dan favicon
+  foto/Code.gs            backend foto dokumentasi (disalin ke Google Apps Script, tidak dijalankan di GitHub)
   tiles/ortho/            tile ortofoto (z/x/y.jpg)
   otomasi_qgis.sql        trigger dan prosedur otomasi database
   setup_otomasi.bat       pasang otomasi (sekali, oleh pengelola database)
