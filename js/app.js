@@ -12,7 +12,8 @@ const isRef=p=>REF.has(p.manhole_id)||p.is_reference===true||p.is_reference==='t
 let PIPES,MH,IDX=[],hits=[],sel=-1,hl=null,cMode='method';
 const mm=new Map(),byId=new Map(),f={zone:'',cls:'',st:''},off=new Set();
 /* ===== PENGATURAN ===== */
-const FOTO_URL='https://script.google.com/macros/s/AKfycbyNVXIL4wcrMThVFLNGe2x8bkR-_zoZSMMGixKZ4vRqzsyoP0Mengv_zba2sILMssmugA/exec';   // alamat web app Google Apps Script (berakhiran /exec) untuk foto dokumentasi. Kosongkan untuk menonaktifkan fitur foto.
+const FOTO_URL='https://script.google.com/macros/s/AKfycbxJY-E6pWKLg0ThWJmMugaAqEmGtb-idTTxeHOsSXAG7CGeUItM8ZOneTpa-__4xlE/exec';   // alamat web app Google Apps Script (berakhiran /exec) untuk foto dokumentasi. Kosongkan untuk menonaktifkan fitur foto.
+const FOTO_AUTO=true;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil)
 const HI_MINZ=18;   // house inlet (SR/HI/HIP) baru tampil mulai zoom ini. Naikkan bila masih padat, turunkan bila ingin lebih cepat muncul.
 /* ======================= */
 const map=L.map('map',{preferCanvas:true,zoomControl:false,maxZoom:28,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,renderer:L.canvas({tolerance:5})});L.control.zoom({position:'topright'}).addTo(map);
@@ -203,7 +204,7 @@ const TOUR=[
  {t:'#lg',h:'Klik objek di peta',p:'Klik pipa atau manhole untuk melihat detailnya: lokasi, elevasi, kedalaman, dan status progres. Legenda warna ada di kiri bawah peta, dan di HP lewat tombol <b>Legenda</b>.'},
  {t:'#msr',h:'Ukur jarak dan luas',p:'Klik tombol penggaris, lalu pilih <b>Jarak</b> atau <b>Luas</b> dan klik titik demi titik di peta. Hasilnya muncul di panel. Gunakan <b>Urungkan</b>, <b>Hapus</b>, atau <b>Tutup</b> (juga bisa dengan tombol Esc).'},
  {t:'#gps',h:'Lokasi saya',p:'Tombol ini menampilkan posisi Anda di peta, berguna saat di lapangan. Browser akan meminta izin lokasi, dan GPS paling akurat di tempat terbuka.'},
- ...(FOTO_URL?[{t:'#fotoBtn',h:'Unggah foto dokumentasi',p:'Petugas lapangan bisa mengunggah foto dokumentasi dari sini. Foto langsung disimpan di Google Drive dan posisinya tampil di peta sebagai ikon kamera. Isi nama dan kode akses, ambil foto di lokasi, lalu tekan Unggah. Aktifkan GPS dan izinkan akses lokasi.'}]:[]),
+ ...(FOTO_URL?[{t:'#fotoBtn',h:'Unggah foto dokumentasi',p:'Petugas lapangan bisa mengunggah foto dokumentasi dari sini. Foto langsung disimpan di Google Drive dan posisinya tampil di peta sebagai ikon kamera. Isi nama dan kode akses, ambil foto di lokasi, lalu tekan Unggah. Aktifkan GPS dan izinkan akses lokasi. Tombol Terbaru menampilkan foto kegiatan terakhir.'}]:[]),
  {t:'.hb',h:'Panel dan tema',p:'<b>Panel</b> menyembunyikan atau menampilkan panel kiri agar peta lebih luas (di komputer). <b>Tema</b> mengganti mode terang atau gelap. <b>Panduan</b> membuka kembali tutorial ini.'},
  {c:true,h:'Selesai',p:'Anda siap memakai dashboard. Kalau butuh panduan lagi, klik tombol <b>Panduan</b> di bagian atas halaman.'}
 ];
@@ -241,10 +242,13 @@ const FIC=L.divIcon({className:'fo',html:'<svg width="14" height="14" viewBox="0
 const drvUrl=(id,w)=>'https://drive.google.com/thumbnail?id='+encodeURIComponent(id)+'&sz=w'+w;
 function fotoPop(p){const d=p.w?new Date(p.w):null,t=d&&!isNaN(d)?d.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'}):'–';
  return '<div class="pp"><h3>Foto dokumentasi</h3>'+(p.k?'<p class="sub">'+esc(p.k)+'</p>':'')+'<a href="https://drive.google.com/file/d/'+encodeURIComponent(p.id)+'/view" target="_blank" rel="noopener"><img class="fi" src="'+drvUrl(p.id,700)+'" alt="Foto dokumentasi" loading="lazy"></a><table><tr><th>Waktu</th><td>'+esc(t)+'</td></tr><tr><th>Petugas</th><td>'+esc(p.n)+'</td></tr>'+(p.d?'<tr><th>Keterangan</th><td>'+esc(p.d)+'</td></tr>':'')+'</table><p class="sm">Ketuk foto untuk membuka ukuran penuh di Google Drive.</p></div>'}
+let FOTOS=[],fAuto=false;
 function fotoLoad(){if(!FOTO_URL)return;
- fetch(FOTO_URL,{cache:'no-store'}).then(r=>r.json()).then(a=>{SL.foto.clearLayers();have.foto=0;
-  (Array.isArray(a)?a:[]).forEach(p=>{if(!isFinite(p.lat)||!isFinite(p.lng)||!p.id)return;L.marker([p.lat,p.lng],{pane:'pf',icon:FIC,keyboard:false}).bindPopup(()=>fotoPop(p),{maxWidth:300}).addTo(SL.foto);have.foto++});
-  lyDraw();syncStatic()}).catch(()=>{})}
+ fetch(FOTO_URL,{cache:'no-store'}).then(r=>r.json()).then(a=>{SL.foto.clearLayers();have.foto=0;FOTOS=[];
+  (Array.isArray(a)?a:[]).forEach(p=>{if(!isFinite(p.lat)||!isFinite(p.lng)||!p.id)return;p.m=L.marker([p.lat,p.lng],{pane:'pf',icon:FIC,keyboard:false}).bindPopup(()=>fotoPop(p),{maxWidth:300}).addTo(SL.foto);FOTOS.push(p);have.foto++});
+  lyDraw();syncStatic();
+  if(!fAuto){fAuto=true;let seen=false;try{seen=sessionStorage.getItem('cwis06_fnew')==='1'}catch(e){}
+   if(FOTO_AUTO&&FOTOS.length&&!seen&&tSeen()&&!tOn&&FUP.hidden&&location.hash!=='#unggah'){try{sessionStorage.setItem('cwis06_fnew','1')}catch(e){}fnOpen()}}}).catch(()=>{})}
 
 const FUP=document.createElement('div');FUP.id='fup';FUP.hidden=true;
 FUP.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="fupH"><h3 id="fupH">Unggah foto dokumentasi</h3>'
@@ -295,23 +299,38 @@ async function fKirim(){if(fBusy)return;const nama=$('fN').value.trim(),pin=$('f
  if(!fFiles.length){m.textContent='Tambahkan minimal satu foto.';return}
  if(!pt){m.textContent='Lokasi belum tersedia. Ambil ulang lokasi atau isi ID manhole atau pipa yang valid.';return}
  fBusy=true;$('fS').disabled=true;LS('fo_nama',nama);LS('fo_kode',pin);
- try{const total=fFiles.length;
+ try{const total=fFiles.length;let noShare=false;
   for(let i=0;i<total;i++){m.textContent='Mengunggah foto '+(i+1)+' dari '+total+'...';
    const b64=await fKecil(fFiles[0]);
    const r=await fetch(FOTO_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kode_akses:pin,nama:nama,kode:idv,keterangan:$('fD').value.trim(),lat:pt.lat,lng:pt.lng,akurasi:src==='gps'&&fGps?fGps.acc:'',sumber:src==='id'&&q?'titik '+q.nm:'gps',foto:b64})});
-   const j=await r.json();if(!j.ok)throw new Error(j.pesan||'Server menolak unggahan');
+   const j=await r.json();if(!j.ok)throw new Error(j.pesan||'Server menolak unggahan');if(j.bagikan===false)noShare=true;
    fFiles.shift();fThumbs()}
-  toast('Foto berhasil diunggah');$('fD').value='';fClose();fotoLoad();map.setView([pt.lat,pt.lng],Math.max(map.getZoom(),18))}
+  toast(noShare?'Foto terunggah, tetapi folder Drive belum dibagikan sehingga gambar belum tampil. Hubungi admin.':'Foto berhasil diunggah');$('fD').value='';fClose();fotoLoad();map.setView([pt.lat,pt.lng],Math.max(map.getZoom(),18))}
  catch(e){m.textContent='Gagal mengunggah: '+(e.message||e)+'. Periksa sinyal dan kode akses, lalu coba lagi.'}
  finally{fBusy=false;$('fS').disabled=false}}
 $('fCam').onclick=()=>$('fFc').click();$('fGal').onclick=()=>$('fFg').click();
 $('fFc').onchange=e=>{fAdd(e.target.files);e.target.value=''};$('fFg').onchange=e=>{fAdd(e.target.files);e.target.value=''};
 $('fI').oninput=()=>fRefresh();$('fRe').onclick=fLoc;$('fX').onclick=fClose;$('fS').onclick=fKirim;
 document.addEventListener('keydown',e=>{if(!FUP.hidden&&e.key==='Escape')fClose()});
+const FNW=document.createElement('div');FNW.id='fnew';FNW.hidden=true;
+FNW.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="fnH"><div class="fhd"><h3 id="fnH">Foto kegiatan terbaru</h3><button type="button" class="btn" id="fnX">Tutup</button></div><label class="f" id="fnTl">Tampilkan foto dari tim<select id="fnT"></select></label><div id="fnL"></div></div>';
+document.body.appendChild(FNW);
+const fnTime=w=>{const d=new Date(w);return isNaN(d)?'–':d.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})};
+function fnRender(){const t=$('fnT').value,a=FOTOS.filter(p=>!t||p.t===t).sort((x,y)=>new Date(y.w)-new Date(x.w)).slice(0,12);
+ $('fnL').innerHTML=a.length?a.map(p=>'<button type="button" class="fni" data-i="'+FOTOS.indexOf(p)+'"><img src="'+drvUrl(p.id,240)+'" alt="" loading="lazy"><span><b>'+esc(p.k||'Tanpa ID')+'</b><small>'+esc(fnTime(p.w))+' · '+esc(p.n)+(p.t?' · '+esc(p.t):'')+'</small>'+(p.d?'<em>'+esc(p.d)+'</em>':'')+'</span></button>').join(''):'<p class="sm">Belum ada foto.</p>'}
+function fnOpen(){const ts=[...new Set(FOTOS.map(p=>p.t).filter(Boolean))].sort();$('fnTl').hidden=ts.length<2;$('fnT').innerHTML='<option value="">Semua tim</option>'+ts.map(t=>'<option>'+esc(t)+'</option>').join('');fnRender();FNW.hidden=false}
+$('fnT').onchange=fnRender;$('fnX').onclick=()=>{FNW.hidden=true};
+FNW.addEventListener('click',e=>{if(e.target===FNW)FNW.hidden=true});
+$('fnL').onclick=e=>{const b=e.target.closest('.fni');if(!b)return;const p=FOTOS[+b.dataset.i];if(!p)return;FNW.hidden=true;if(mob())sh(0);
+ if(!vis.foto){vis.foto=true;lyDraw()}syncStatic();map.setView([p.lat,p.lng],Math.max(map.getZoom(),19));setTimeout(()=>p.m.openPopup(),50)};
+document.addEventListener('keydown',e=>{if(!FNW.hidden&&e.key==='Escape')FNW.hidden=true});
+const NBTN=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.DomUtil.create('button','gps fbtn');b.id='fnBtn';b.title='Foto kegiatan terbaru';b.setAttribute('aria-label','Foto kegiatan terbaru');
+ b.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 9"/></svg><span>Terbaru</span>';
+ L.DomEvent.disableClickPropagation(b);b.onclick=fnOpen;return b}});
 const FBTN=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.DomUtil.create('button','gps fbtn');b.id='fotoBtn';b.title='Unggah foto dokumentasi';b.setAttribute('aria-label','Unggah foto dokumentasi');
  b.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto</span>';
  L.DomEvent.disableClickPropagation(b);b.onclick=fOpen;return b}});
-if(FOTO_URL){map.addControl(new FBTN());fotoLoad();if(location.hash==='#unggah')setTimeout(fOpen,900)}
+if(FOTO_URL){map.addControl(new FBTN());map.addControl(new NBTN());fotoLoad();if(location.hash==='#unggah')setTimeout(fOpen,900)}
 
 
 $('lgT').onclick=()=>document.body.classList.toggle('lgon');
