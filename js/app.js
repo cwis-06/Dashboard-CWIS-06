@@ -242,7 +242,6 @@ function start(){
  const opt=(id,vals)=>vals.forEach(v=>{const o=document.createElement('option');o.value=v[0];o.textContent=v[1];$(id).appendChild(o)});
  opt('fZone',[...new Set(PIPES.features.concat(MH.features).map(x=>x.properties.zone).filter(z=>z!=null))].sort((a,b)=>a-b).map(z=>[String(z),'Zona '+z]));
  opt('fCls',['Primary','Secondary','Tertiary'].map(c=>[c,c]));
- $('tbLen').textContent=fmt(PIPES.features.reduce((s,x)=>s+(x.properties.length_m||0),0)/1000,2)+' km';
  osm.addTo(map);bmDraw();map.fitBounds(L.geoJSON(PIPES).getBounds().pad(.05));render(false);lyDraw();
  Promise.allSettled(SP.map(s=>get('data/'+s.f+'.geojson').then(r=>{r.j.features=r.j.features.filter(x=>x.geometry);buildStatic(s,r.j)}))).then(()=>{lyDraw();syncStatic();legend();hiTable()});
 }

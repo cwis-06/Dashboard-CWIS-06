@@ -8,11 +8,12 @@ button,select,input{font:inherit;color:var(--ink)}
 input[type=checkbox],input[type=radio]{accent-color:var(--ink)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px;box-shadow:0 0 0 5px var(--mk)}
 
-header{display:flex;flex-wrap:wrap;align-items:center;gap:0 28px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 18px}
-.tb{padding:8px 0;white-space:nowrap}.tb small{color:var(--mut);font-size:13px;margin-right:7px}.tb b{font-weight:600}
-.tb.t small{display:block;margin:0;font-size:12px;line-height:1.1}
-.tb.t b{font:700 22px/1.15 'Bricolage Grotesque',sans-serif;letter-spacing:-.015em}
-.hb{margin-left:auto;display:flex;gap:6px;align-items:center}
+header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:'brand ttl hr';align-items:center;gap:6px 20px;background:var(--panel);border-bottom:1px solid var(--line);padding:6px 18px}
+.brand{display:flex;justify-self:start;grid-area:brand}.brand img{display:block;height:52px;width:auto;max-width:100%;background:#fff;border-radius:6px;padding:3px}
+.ttl{text-align:center;grid-area:ttl}.ttl h1{margin:0;font:700 22px/1.2 'Bricolage Grotesque',sans-serif;letter-spacing:-.015em}.ttl small{color:var(--mut);font-size:13px}
+.hr{grid-area:hr;justify-self:end;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;justify-content:flex-end}
+.tb{white-space:nowrap}.tb small{color:var(--mut);font-size:13px;margin-right:7px}.tb b{font-weight:600}
+.hb{display:flex;gap:6px;align-items:center}
 
 .btn{border:1px solid var(--line);background:var(--inp);border-radius:var(--r);padding:5px 11px;cursor:pointer;transition:background .15s,border-color .15s}
 .btn:hover{background:var(--mk);border-color:var(--ink);color:#1c2428}
@@ -92,9 +93,10 @@ table.t th:first-child,table.t td:first-child{text-align:left}table.t th{color:v
 #tourS{border-color:transparent;background:none;color:var(--mut)}#tourS:hover{color:#1c2428}
 .mo{display:none}
 @media(prefers-reduced-motion:reduce){*,::details-content{transition:none!important}}
+@media(max-width:1100px){header{grid-template-columns:auto 1fr;grid-template-areas:'brand hr' 'ttl ttl'}}
 @media(max-width:820px){
  body{height:100%;overflow:hidden}
- header .tb:not(.t){display:none}header .tb.t{padding:3px 10px}header .tb.t small{display:none}header .tb.t b{font-size:18px}
+ header{padding:4px 10px;gap:2px 10px}header .tb{display:none}.brand img{height:26px}.ttl h1{font-size:15px}.ttl small{font-size:11.5px}
  #lgT{display:inline-block}#tg{display:none}
  main{display:block;position:relative;flex:1}
  #map{position:absolute;inset:0;min-height:0;height:auto}
