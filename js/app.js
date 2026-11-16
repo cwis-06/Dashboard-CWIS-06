@@ -185,6 +185,51 @@ mc.addEventListener('click',e=>{if(!mOn||e.target.closest('#msrp,.leaflet-contro
 mc.addEventListener('dblclick',e=>{if(mOn&&!e.target.closest('#msrp,.leaflet-control,#lg'))e.stopPropagation()},true);
 map.on('mousemove',e=>{if(!mOn||!mPts.length)return;rb.setLatLngs(mMode==='a'&&mPts.length>1?[mPts[mPts.length-1],e.latlng,mPts[0]]:[mPts[mPts.length-1],e.latlng]);msrText(e.latlng)});
 document.addEventListener('keydown',e=>{if(mOn&&e.key==='Escape')msrSet(false)});
+/* ===== PANDUAN PENGGUNAAN (tur) =====
+   Muncul otomatis saat pertama kali dashboard dibuka, bisa dilewati, dan dibuka lagi lewat tombol "Panduan" di header.
+   Untuk mengubah isi: edit daftar TOUR di bawah. t = elemen yang disorot (selector CSS), c = true bila tanpa sorotan.
+   Untuk memunculkan lagi bagi semua pengguna setelah panduan diubah, ganti TOUR_KEY (mis. _v2). */
+const TOUR_KEY='cwis06_tour_v1',MO=' <span class="mo">Di HP, tarik gagang panel di bawah layar ke atas.</span>';
+const TOUR=[
+ {c:true,h:'Selamat datang di dashboard CWIS 06',p:'Dashboard ini memantau progres pekerjaan pipa lateral dan manhole sewerage di Banjardowo dan Genuksari. Panduan singkat ini menjelaskan fitur-fiturnya. Anda bisa melewatinya kapan saja dan membukanya lagi lewat tombol <b>Panduan</b> di bagian atas.'},
+ {t:'#q',h:'Cari manhole atau pipa',p:'Ketik ID (misalnya <b>MHJ_06_0752</b>), nama jalan, atau material. Pilih salah satu hasil untuk langsung memperbesar peta ke lokasinya. Tekan tombol <b>/</b> di keyboard untuk cepat ke kotak ini.'+MO},
+ {t:'aside .seg',h:'Tampilan peta',p:'<b>Metode</b> mewarnai pipa berdasarkan metode kerja (Jacking atau Open Trench). <b>Progres</b> mewarnai pipa berdasarkan persen progres. Keterangan warna ada di legenda pada peta.'+MO},
+ {t:'#lyBox',h:'Layer peta',p:'Buka bagian ini untuk menyalakan atau mematikan layer: pipa collecting, pipa persil, inspection chamber, batas RW, dan house inlet (SR, HI, HIP). House inlet awalnya mati. Setelah dicentang, titiknya muncul mulai zoom '+HI_MINZ+'.'+MO},
+ {t:'#bmBox',h:'Peta dasar',p:'Ganti latar peta: OpenStreetMap, CARTO terang, citra satelit Esri, <b>Ortofoto CWIS-06</b>, atau tanpa peta dasar. Ortofoto tampil di atas OpenStreetMap dan paling jelas saat diperbesar.'+MO},
+ {t:'.pg',h:'Ringkasan progres',p:'Persentase progres dihitung berbobot panjang pipa yang tergambar. Di bawahnya ada panjang tergambar, panjang terpasang setara, jumlah ruas pipa, manhole yang selesai, dan jumlah house inlet.'+MO},
+ {t:'.fl',h:'Filter',p:'Saring peta berdasarkan <b>zona</b>, <b>kelas pipa</b> (Primary, Secondary, Tertiary), dan <b>status</b> (belum mulai, berjalan, selesai). Tombol <b>Reset</b> mengembalikan semua filter.'+MO},
+ {t:'#zones',h:'Progres per zona',p:'Klik satu zona untuk memfilter data dan memperbesar peta ke zona itu. Klik lagi untuk melepas pilihan.'+MO},
+ {t:'#lg',h:'Klik objek di peta',p:'Klik pipa atau manhole untuk melihat detailnya: lokasi, elevasi, kedalaman, dan status progres. Legenda warna ada di kiri bawah peta, dan di HP lewat tombol <b>Legenda</b>.'},
+ {t:'#msr',h:'Ukur jarak dan luas',p:'Klik tombol penggaris, lalu pilih <b>Jarak</b> atau <b>Luas</b> dan klik titik demi titik di peta. Hasilnya muncul di panel. Gunakan <b>Urungkan</b>, <b>Hapus</b>, atau <b>Tutup</b> (juga bisa dengan tombol Esc).'},
+ {t:'#gps',h:'Lokasi saya',p:'Tombol ini menampilkan posisi Anda di peta, berguna saat di lapangan. Browser akan meminta izin lokasi, dan GPS paling akurat di tempat terbuka.'},
+ {t:'.hb',h:'Panel dan tema',p:'<b>Panel</b> menyembunyikan atau menampilkan panel kiri agar peta lebih luas (di komputer). <b>Tema</b> mengganti mode terang atau gelap. <b>Panduan</b> membuka kembali tutorial ini.'},
+ {c:true,h:'Selesai',p:'Anda siap memakai dashboard. Kalau butuh panduan lagi, klik tombol <b>Panduan</b> di bagian atas halaman.'}
+];
+const tEl=document.createElement('div');tEl.id='tour';tEl.hidden=true;
+tEl.innerHTML='<div class="bd"></div><div class="hl"></div><div class="cd" role="dialog" aria-modal="true" aria-labelledby="tourH"><span class="sm" id="tourN"></span><h3 id="tourH"></h3><p id="tourP"></p><div class="tr"><button class="btn" id="tourS">Lewati</button><span class="sp"></span><button class="btn" id="tourB">Kembali</button><button class="btn" id="tourF">Lanjut</button></div></div>';
+document.body.appendChild(tEl);
+let ti=0,tOn=false;
+const tSeen=()=>{try{return localStorage.getItem(TOUR_KEY)==='1'}catch(e){return false}},tMark=()=>{try{localStorage.setItem(TOUR_KEY,'1')}catch(e){}};
+function tPlace(){const s=TOUR[ti],el=!mob()&&s.t?document.querySelector(s.t):null,r=el?el.getBoundingClientRect():null,ok=!!r&&r.width>4&&r.height>4,hl=tEl.querySelector('.hl');
+ tEl.classList.toggle('c',!ok);
+ if(ok){const d=6;Object.assign(hl.style,{display:'block',left:(r.left-d)+'px',top:(r.top-d)+'px',width:(r.width+2*d)+'px',height:(r.height+2*d)+'px'})}else hl.style.display='none'}
+function tShow(i){ti=Math.max(0,Math.min(TOUR.length-1,i));const s=TOUR[ti],last=ti===TOUR.length-1;
+ $('tourN').textContent=ti&&!last?'Langkah '+ti+' dari '+(TOUR.length-2):'Panduan';
+ $('tourH').textContent=s.h;$('tourP').innerHTML=s.p;
+ $('tourB').style.visibility=ti?'visible':'hidden';$('tourS').style.display=last?'none':'';
+ $('tourF').textContent=ti===0?'Mulai':last?'Selesai':'Lanjut';
+ const el=!mob()&&s.t?document.querySelector(s.t):null;if(el)el.scrollIntoView({block:'nearest'});
+ tPlace();$('tourF').focus()}
+function tOpen(){if(mob())sh(0);map.closePopup();if(mOn)msrSet(false);tOn=true;tEl.hidden=false;tShow(0)}
+function tClose(){tOn=false;tEl.hidden=true;tMark()}
+$('tourF').onclick=()=>{ti===TOUR.length-1?tClose():tShow(ti+1)};$('tourB').onclick=()=>tShow(ti-1);$('tourS').onclick=tClose;
+tEl.querySelector('.bd').onclick=()=>{};
+window.addEventListener('resize',()=>{if(tOn)tPlace()});
+document.addEventListener('keydown',e=>{if(!tOn)return;if(e.key==='Escape')tClose();else if(e.key==='ArrowRight')$('tourF').click();else if(e.key==='ArrowLeft'&&ti)tShow(ti-1)});
+const tBtn=document.createElement('button');tBtn.className='btn';tBtn.id='tourBtn';tBtn.textContent='Panduan';tBtn.title='Buka panduan penggunaan';tBtn.onclick=tOpen;
+const hbx=document.querySelector('.hb');hbx.insertBefore(tBtn,hbx.firstChild);
+if(!tSeen())setTimeout(tOpen,700);
+
 
 $('lgT').onclick=()=>document.body.classList.toggle('lgon');
 legend();
