@@ -4,8 +4,8 @@ Dashboard peta untuk memantau progres pekerjaan pipa lateral dan manhole sewerag
 Dibangun dengan Leaflet, berjalan sepenuhnya di browser, dan dihosting gratis di GitHub Pages.
 Datanya berasal dari database PostGIS yang diedit lewat QGIS, lalu diekspor menjadi file GeoJSON di folder `data/`.
 
-Alamat dashboard: https://fiqri24rahmann.github.io/Dashboard-CWIS-06/
-Repo: https://github.com/fiqri24rahmann/Dashboard-CWIS-06
+Alamat dashboard: https://cwis-06.github.io/Dashboard-CWIS-06/
+Repo: https://github.com/cwis-06/Dashboard-CWIS-06
 
 Dokumen ini dibagi dua bagian:
 
