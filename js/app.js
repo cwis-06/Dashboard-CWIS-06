@@ -18,7 +18,6 @@ const HI_MINZ=18;   // house inlet (SR/HI/HIP) baru tampil mulai zoom ini. Naikk
 /* ======================= */
 const map=L.map('map',{preferCanvas:true,zoomControl:false,maxZoom:28,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,renderer:L.canvas({tolerance:5})});L.control.zoom({position:'topright'}).addTo(map);
 const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:28,maxNativeZoom:19,attribution:'© OpenStreetMap'});
-const carto=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:28,maxNativeZoom:20,attribution:'© OpenStreetMap, © CARTO'});
 const esri=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:28,maxNativeZoom:19,attribution:'Tiles © Esri'});
 const gP=L.featureGroup().addTo(map),gM=L.featureGroup().addTo(map);
 /* Urutan tumpuk (bawah ke atas): Poligon (zona, RW) > Polyline (persil, collecting) > Line (pipa lateral) > Point (house inlet, inspection chamber, manhole) */
@@ -91,8 +90,8 @@ $('tg').onclick=()=>{document.body.classList.toggle('min');setTimeout(()=>map.in
 $('th').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('th',t)}catch(e){}};
 map.createPane('po');map.getPane('po').style.zIndex=250;
 const ortho=L.tileLayer('tiles/ortho/{z}/{x}/{y}.jpg',{pane:'po',minZoom:12,maxNativeZoom:20,maxZoom:28,opacity:.9,attribution:'Ortofoto CWIS-06'});
-const BASES={osm:osm,carto:carto,esri:esri,ortho:L.layerGroup([osm,ortho]),none:null};let curBase='osm';
-function bmDraw(){$('bm').innerHTML='<div class="ly" style="grid-template-columns:1fr">'+[['osm','OpenStreetMap'],['carto','Peta terang polos (CARTO)'],['esri','Citra satelit (Esri)'],['ortho','Ortofoto CWIS-06 (di atas OSM)'],['none','Tanpa peta dasar']].map(([k,n])=>'<label><input type="radio" name="bm" value="'+k+'"'+(curBase===k?' checked':'')+'><span>'+n+'</span></label>').join('')+'</div>'}
+const BASES={osm:osm,esri:esri,ortho:ortho};let curBase='osm';
+function bmDraw(){$('bm').innerHTML='<div class="ly" style="grid-template-columns:1fr">'+[['osm','OpenStreetMap'],['esri','Citra satelit (Esri)'],['Ortofoto CWIS-06'],['none','Tanpa peta dasar']].map(([k,n])=>'<label><input type="radio" name="bm" value="'+k+'"'+(curBase===k?' checked':'')+'><span>'+n+'</span></label>').join('')+'</div>'}
 $('bm').addEventListener('change',e=>{const t=e.target;if(t.name==='bm'){Object.values(BASES).forEach(b=>b&&map.removeLayer(b));curBase=t.value;if(BASES[t.value])BASES[t.value].addTo(map)}});
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cMode=b.dataset.c;document.querySelectorAll('[data-c]').forEach(x=>x.setAttribute('aria-pressed',x===b));legend();if(PIPES)render(false)});
 $('lg').onclick=e=>{const b=e.target.closest('[data-m]');if(!b)return;off.has(b.dataset.m)?off.delete(b.dataset.m):off.add(b.dataset.m);legend();render(true)};
@@ -197,7 +196,7 @@ const TOUR=[
  {t:'#q',h:'Cari manhole atau pipa',p:'Ketik ID (misalnya <b>MHJ_06_0752</b>), nama jalan, atau material. Pilih salah satu hasil untuk langsung memperbesar peta ke lokasinya. Tekan tombol <b>/</b> di keyboard untuk cepat ke kotak ini.'+MO},
  {t:'aside .seg',h:'Tampilan peta',p:'<b>Metode</b> mewarnai pipa berdasarkan metode kerja (Jacking atau Open Trench). <b>Progres</b> mewarnai pipa berdasarkan persen progres. Keterangan warna ada di legenda pada peta.'+MO},
  {t:'#lyBox',h:'Layer peta',p:'Buka bagian ini untuk menyalakan atau mematikan layer: pipa collecting, pipa persil, inspection chamber, batas RW, dan house inlet (SR, HI, HIP). House inlet awalnya mati. Setelah dicentang, titiknya muncul mulai zoom '+HI_MINZ+'.'+MO},
- {t:'#bmBox',h:'Peta dasar',p:'Ganti latar peta: OpenStreetMap, CARTO terang, citra satelit Esri, <b>Ortofoto CWIS-06</b>, atau tanpa peta dasar. Ortofoto tampil di atas OpenStreetMap dan paling jelas saat diperbesar.'+MO},
+ {t:'#bmBox',h:'Peta dasar',p:'Ganti latar peta: OpenStreetMap, citra satelit Esri, <b>Ortofoto CWIS-06</b>, atau tanpa peta dasar. Ortofoto tampil di atas OpenStreetMap dan paling jelas saat diperbesar.'+MO},
  {t:'.pg',h:'Ringkasan progres',p:'Persentase progres dihitung berbobot panjang pipa yang tergambar. Di bawahnya ada panjang tergambar, panjang terpasang setara, jumlah ruas pipa, manhole yang selesai, dan jumlah house inlet.'+MO},
  {t:'.fl',h:'Filter',p:'Saring peta berdasarkan <b>zona</b>, <b>kelas pipa</b> (Primary, Secondary, Tertiary), dan <b>status</b> (belum mulai, berjalan, selesai). Tombol <b>Reset</b> mengembalikan semua filter.'+MO},
  {t:'#zones',h:'Progres per zona',p:'Klik satu zona untuk memfilter data dan memperbesar peta ke zona itu. Klik lagi untuk melepas pilihan.'+MO},
