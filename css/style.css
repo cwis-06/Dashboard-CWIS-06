@@ -157,7 +157,10 @@ table.t th:first-child,table.t td:first-child{text-align:left}table.t th{color:v
  .leaflet-control-zoom{display:none}
  #lg{display:none;bottom:118px;max-width:220px}body.lgon #lg{display:block}
  .btn,select,#q{min-height:42px}.ly input{width:20px;height:20px}
- .pp{min-width:0;max-height:36vh}
+ .pp{min-width:0;max-height:26vh;font-size:12.5px}
+ .pp h3{font-size:17px}.pp h4{margin:6px 0 1px;padding-top:3px}.pp table{font-size:12px}.pp th,.pp td{padding-top:0;padding-bottom:0}
+ .leaflet-popup-content-wrapper{max-height:min(52vh,52dvh)}.leaflet-popup-content{max-height:min(52vh,52dvh);margin:10px 14px}
+ .leaflet-popup-content-wrapper{font-size:12.5px}
  #toast{bottom:120px}
  .mo{display:inline}
  #tour .cd{width:min(360px,calc(100vw - 28px))}
