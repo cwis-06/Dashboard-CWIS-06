@@ -337,7 +337,8 @@ function fLoc(){fGps=null;$('fLs').textContent='Mencari lokasi GPS...';
  if(!navigator.geolocation){fRefresh(true);return}
  navigator.geolocation.getCurrentPosition(p=>{fGps={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)};fRefresh()},()=>{fGps=null;fRefresh(true)},{enableHighAccuracy:true,timeout:20000,maximumAge:0})}
 function fThumbs(){const w=$('fTh');w.innerHTML='';fFiles.forEach((f,i)=>{const d=document.createElement('div'),im=new Image(),b=document.createElement('button');im.src=URL.createObjectURL(f);im.alt='';b.type='button';b.textContent='×';b.setAttribute('aria-label','Hapus foto');b.onclick=()=>{fFiles.splice(i,1);fThumbs()};d.append(im,b);w.append(d)})}
-function fAdd(list){[...list].forEach(f=>{if(fFiles.length<5)fFiles.push(f)});if(list.length&&fFiles.length>=5)$('fMsg').textContent='Maksimal 5 foto per unggahan.';fThumbs()}
+const F_MAX=10;   // jumlah foto maksimal per sekali unggah
+function fAdd(list){let skip=0;[...list].forEach(f=>{if(fFiles.length<F_MAX)fFiles.push(f);else skip++});$('fMsg').textContent=skip?'Maksimal '+F_MAX+' foto per unggahan. '+skip+' foto tidak ditambahkan.':'';fThumbs()}
 async function fKecil(file){let bm;
  try{bm=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bm=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(file)})}
  const w=bm.width||bm.naturalWidth,h=bm.height||bm.naturalHeight,k=Math.min(1,1600/Math.max(w,h)),c=document.createElement('canvas');
