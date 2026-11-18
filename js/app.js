@@ -13,7 +13,8 @@ let PIPES,MH,IDX=[],hits=[],sel=-1,hl=null,cMode='method';
 const mm=new Map(),byId=new Map(),f={zone:'',cls:'',st:''},off=new Set();
 /* ===== PENGATURAN ===== */
 const FOTO_URL='https://script.google.com/macros/s/AKfycbxJY-E6pWKLg0ThWJmMugaAqEmGtb-idTTxeHOsSXAG7CGeUItM8ZOneTpa-__4xlE/exec';   // alamat web app Google Apps Script (berakhiran /exec) untuk foto dokumentasi. Kosongkan untuk menonaktifkan fitur foto.
-const FOTO_AUTO=true;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil)
+const FOTO_AUTO=false;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil). Dimatikan di HP terlepas dari ini (lihat FOTO_AUTO_MOBILE).
+const FOTO_AUTO_MOBILE=false;   // sama, tapi khusus layar sempit (<=820px). Biarkan false: di HP jendela besar ini mengganggu saat baru buka halaman.
 const HI_MINZ=18;   // house inlet (SR/HI/HIP) baru tampil mulai zoom ini. Naikkan bila masih padat, turunkan bila ingin lebih cepat muncul.
 /* ======================= */
 const map=L.map('map',{preferCanvas:true,zoomControl:false,maxZoom:28,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,renderer:L.canvas({tolerance:5})});L.control.zoom({position:'topright'}).addTo(map);
@@ -142,7 +143,21 @@ map.on('locationfound',e=>{
  if(first){first=false;map.flyTo(e.latlng,Math.max(map.getZoom(),18))}toast('Akurasi sekitar '+Math.round(e.accuracy)+' m')});
 map.on('locationerror',e=>{$('gps').setAttribute('aria-pressed','false');map.stopLocate();toast(e.code===1?'Izin lokasi ditolak. Aktifkan izin lokasi untuk situs ini di pengaturan browser.':'Lokasi belum didapat. Pastikan GPS aktif dan coba di tempat terbuka.')});
 const mob=()=>matchMedia('(max-width:820px)').matches,sh=n=>{document.body.classList.remove('sh1','sh2');if(n)document.body.classList.add('sh'+n);document.body.dataset.sh=n};
-$('grab').onclick=()=>sh(((+document.body.dataset.sh||0)+1)%3);
+(function(){
+ const grab=$('grab');let sy=0,sh0=0,drag=false,moved=false;
+ const vh=()=>innerHeight;
+ const cur=()=>{const cs=getComputedStyle(document.body);return parseFloat(cs.getPropertyValue('--sh-px'))||$('grab').parentElement.getBoundingClientRect().height};
+ function down(y){sy=y;sh0=cur();drag=true;moved=false;document.body.classList.add('dragging')}
+ function move(y){if(!drag)return;const dy=sy-y;if(Math.abs(dy)>4)moved=true;const h=Math.min(vh()*.92,Math.max(64,sh0+dy));document.body.style.setProperty('--sh-px',h+'px');document.body.classList.remove('sh1','sh2');document.body.dataset.sh='drag'}
+ function up(){if(!drag)return;drag=false;document.body.classList.remove('dragging');const h=parseFloat(getComputedStyle(document.body).getPropertyValue('--sh-px'))||0;
+  document.body.style.removeProperty('--sh-px');
+  if(!moved){sh(((+document.body.dataset.sh||0)+1)%3);return}
+  const f=h/vh();sh(f<.22?0:f<.68?1:2)}
+ grab.addEventListener('touchstart',e=>down(e.touches[0].clientY),{passive:true});
+ grab.addEventListener('touchmove',e=>{move(e.touches[0].clientY);e.preventDefault()},{passive:false});
+ grab.addEventListener('touchend',up);
+ grab.addEventListener('mousedown',e=>{down(e.clientY);const mm=e=>move(e.clientY),mu=()=>{up();removeEventListener('mousemove',mm);removeEventListener('mouseup',mu)};addEventListener('mousemove',mm);addEventListener('mouseup',mu)});
+})();
 $('q').addEventListener('focus',()=>{if(mob()&&!+document.body.dataset.sh)sh(1)});
 map.on('click',()=>{if(mob()&&+document.body.dataset.sh)sh(0)});
 /* ===== ALAT UKUR: jarak dan luas =====
@@ -288,7 +303,7 @@ function fotoLoad(){if(!FOTO_URL)return;
   FOTOS=(Array.isArray(a)?a:[]).filter(p=>p&&p.id&&isFinite(p.lat)&&isFinite(p.lng)).map(p=>{p.lat=+p.lat;p.lng=+p.lng;p.day=/^\d{4}-\d{2}-\d{2}$/.test(p.tg||'')?p.tg:(isNaN(new Date(p.w))?'':ymd(new Date(p.w)));return p}).filter(p=>p.day);
   fotoRender();
   if(!fAuto){fAuto=true;let seen=false;try{seen=sessionStorage.getItem('cwis06_fnew')==='1'}catch(e){}
-   if(FOTO_AUTO&&FOTOS.some(fInWin)&&!seen&&tSeen()&&!tOn&&FUP.hidden&&location.hash!=='#unggah'){try{sessionStorage.setItem('cwis06_fnew','1')}catch(e){}fnOpen()}}}).catch(()=>{})}
+   if((mob()?FOTO_AUTO_MOBILE:FOTO_AUTO)&&FOTOS.some(fInWin)&&!seen&&tSeen()&&!tOn&&FUP.hidden&&location.hash!=='#unggah'){try{sessionStorage.setItem('cwis06_fnew','1')}catch(e){}fnOpen()}}}).catch(()=>{})}
 
 /* ----- Penampil foto (lightbox) ----- */
 const FLB=document.createElement('div');FLB.id='flb';FLB.hidden=true;
