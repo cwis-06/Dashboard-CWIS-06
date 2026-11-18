@@ -40,12 +40,12 @@ const progRows=p=>'work_stage' in p
 function popP(p){return '<div class="pp"><h3>'+esc(p.pipe_id)+'</h3><p class="sub">'+esc(p.pipe_type)+', '+esc(p.method)+', '+esc(p.material)+', Ø'+fmt(p.diameter_mm,0)+' mm</p><table>'+
  row('Dari manhole',esc(p.from_mh))+row('Ke manhole',esc(p.to_mh))+row('Panjang',p.length_m==null?null:fmt(p.length_m,2)+' m')+row('Slope',p.slope_pct==null?null:fmt(p.slope_pct,2)+' %')+row('Lokasi',esc(p.location_name))+row('Zona',p.zone)+
  '</table><h4>Ujung hulu</h4><table>'+row('Muka tanah (GL)',m3(p.up_gl))+row('Invert',m3(p.up_ie))+row('Kedalaman (GL − invert)',m3(dep(p.up_gl,p.up_ie)))+
- '</table><h4>Ujung hilir</h4><table>'+row('Muka tanah (GL)',m3(p.lw_gl))+row('Invert',m3(p.lw_ie))+row('Kedalaman (GL − invert)',m3(dep(p.lw_gl,p.lw_ie)))+row('Drop',m3(p.drop_m))+'</table>'+progRows(p)+'</div>'}
+ '</table><h4>Ujung hilir</h4><table>'+row('Muka tanah (GL)',m3(p.lw_gl))+row('Invert',m3(p.lw_ie))+row('Kedalaman (GL − invert)',m3(dep(p.lw_gl,p.lw_ie)))+row('Drop',m3(p.drop_m))+'</table>'+progRows(p)+fDocs(p.pipe_id)+'</div>'}
 function popM(p){if(isRef(p))return '<div class="pp"><h3>'+esc(p.manhole_id)+'</h3><p class="sub">Manhole paket sebelah (CWIS 02), hanya referensi posisi</p></div>';
  return '<div class="pp"><h3>'+esc(p.manhole_id)+'</h3><p class="sub">'+esc(p.mh_type)+(p.shaft?', shaft '+esc(p.shaft):'')+', Ø'+fmt(p.diameter_mm,0)+' mm</p><table>'+
  row('Lokasi',esc(p.location_name))+row('Zona',p.zone)+row('Metode pipa',mmeth(p.manhole_id))+
  '</table><h4>Elevasi</h4><table>'+row('Muka tanah (GL)',m3(p.ground_elev))+row('Invert hulu 1',m3(p.elev_upstream_1))+row('Invert hulu 2',m3(p.elev_upstream_2))+row('Invert hulu 3',m3(p.elev_upstream_3))+row('Invert hilir',m3(p.elev_downstream))+
- '</table><h4>Kedalaman (GL − invert)</h4><table>'+row('Ke invert terdalam',m3(dep(p.ground_elev,lowIE(p))))+row('Ke invert hilir',m3(dep(p.ground_elev,p.elev_downstream)))+'</table>'+progRows(p)+'</div>'}
+ '</table><h4>Kedalaman (GL − invert)</h4><table>'+row('Ke invert terdalam',m3(dep(p.ground_elev,lowIE(p))))+row('Ke invert hilir',m3(dep(p.ground_elev,p.elev_downstream)))+'</table>'+progRows(p)+fDocs(p.manhole_id)+'</div>'}
 const okZ=p=>!f.zone||String(p.zone)===f.zone,okS=p=>!f.st||st(p.progress_pct)===f.st;
 const okP=p=>okZ(p)&&okS(p)&&(!f.cls||p.pipe_type===f.cls)&&!off.has(p.method);
 const okM=p=>{const s=mm.get(p.manhole_id);return okZ(p)&&okS(p)&&(!f.cls||p.mh_type===f.cls)&&(!s||[...s].some(m=>!off.has(m)))};
@@ -118,7 +118,7 @@ function buildStatic(s,g){const poly=s.k==='zona'||s.k==='rw';
   else{inner.bindPopup(()=>popG(p,s.t,s.id),{maxWidth:340}).bindTooltip(String(id),{sticky:true});sById.set(id,inner);IDX.push({t:s.k,g:gk,f:x,id:String(id),h:hay(p)})}
   if(hk)inner._zn=p.zone_no==null?'-':p.zone_no;
   G.addLayer(l);have[gk]=(have[gk]||0)+1})}
-const LY=[['pipe','Pipa lateral'],['mh','Manhole'],['collect','Pipa collecting'],['persil','Pipa persil'],['ic','Inspection chamber'],['sr','SR: HI dan pipa dalam rumah'],['hic','HI: tanpa pipa dalam rumah'],['hip','HIP: potensi, belum disurvey'],['zona','Zona'],['rw','Batas RW'],...(FOTO_URL?[['foto','Foto dokumentasi']]:[])];
+const LY=[['pipe','Pipa lateral'],['mh','Manhole'],['collect','Pipa collecting'],['persil','Pipa persil'],['ic','Inspection chamber'],['sr','SR: HI dan pipa dalam rumah'],['hic','HI: tanpa pipa dalam rumah'],['hip','HIP: potensi, belum disurvey'],['zona','Zona'],['rw','Batas RW'],...(FOTO_URL?[['foto','Tanda kegiatan lapangan']]:[])];
 function lyDraw(){$('ly').innerHTML=LY.map(([k,n])=>{const has=k==='pipe'||k==='mh'||have[k];return '<label'+(HIS.has(k)?' class="hi"':'')+'><input type="checkbox" data-l="'+k+'"'+(vis[k]&&has?' checked':'')+(has?'':' disabled')+'><span>'+n+(has?'':' <small>(belum ada data)</small>')+(have[k]?' <small>'+fmt(have[k],0)+'</small>':'')+(HIS.has(k)&&HI_MINZ>0?' <small>· tampil di zoom ≥ '+HI_MINZ+'</small>':'')+'</span></label>'}).join('')+(HI_MINZ>0?'<p class="sm" style="grid-column:1/-1">House inlet muncul otomatis saat peta diperbesar sampai zoom '+HI_MINZ+'.</p>':'')}
 function hiTable(){const z={};let n={sr:0,hic:0,hip:0};
  ['sr','hic','hip'].forEach(k=>SL[k].eachLayer(l=>{const q=l._zn==null?'-':l._zn;(z[q]=z[q]||{sr:0,hic:0,hip:0})[k]++;n[k]++}));
@@ -203,7 +203,11 @@ const TOUR=[
  {t:'#lg',h:'Klik objek di peta',p:'Klik pipa atau manhole untuk melihat detailnya: lokasi, elevasi, kedalaman, dan status progres. Legenda warna ada di kiri bawah peta, dan di HP lewat tombol <b>Legenda</b>.'},
  {t:'#msr',h:'Ukur jarak dan luas',p:'Klik tombol penggaris, lalu pilih <b>Jarak</b> atau <b>Luas</b> dan klik titik demi titik di peta. Hasilnya muncul di panel. Gunakan <b>Urungkan</b>, <b>Hapus</b>, atau <b>Tutup</b> (juga bisa dengan tombol Esc).'},
  {t:'#gps',h:'Lokasi saya',p:'Tombol ini menampilkan posisi Anda di peta, berguna saat di lapangan. Browser akan meminta izin lokasi, dan GPS paling akurat di tempat terbuka.'},
- ...(FOTO_URL?[{t:'#fotoBtn',h:'Unggah foto dokumentasi',p:'Petugas lapangan bisa mengunggah foto dokumentasi dari sini. Foto langsung disimpan di Google Drive dan posisinya tampil di peta sebagai ikon kamera. Isi nama dan kode akses, ambil foto di lokasi, lalu tekan Unggah. Aktifkan GPS dan izinkan akses lokasi. Tombol Terbaru menampilkan foto kegiatan terakhir.'}]:[]),
+ ...(FOTO_URL?[
+  {t:'#fdt',h:'Tanggal kegiatan',p:'Peta hanya menampilkan kegiatan lapangan <b>7 hari ke belakang</b> dari tanggal yang dipilih. Gunakan tanda panah atau kalender untuk berpindah hari, dan <b>Hari ini</b> untuk kembali. Tanda bulat kecil di dekat manhole atau pipa berarti ada kegiatan di sana (kuning berdenyut = kegiatan pada tanggal yang dipilih, angka = jumlah foto).'},
+  {t:'#fotoBtn',h:'Unggah foto dokumentasi',p:'Petugas lapangan mengunggah foto dari sini. Isi nama, kode akses, tanggal, dan keterangan kegiatan, lalu ambil foto di lokasi dan tekan Unggah. Foto otomatis tersimpan di Google Drive dalam folder per hari, per pekan, dan per bulan. Aktifkan GPS dan izinkan akses lokasi.'},
+  {t:'#fnBtn',h:'Kegiatan terbaru',p:'Daftar kegiatan 7 hari terakhir, diurutkan per hari dengan keterangan di bagian atas. Ketuk satu kegiatan untuk melihat lokasinya di peta, atau ketuk gambar kecilnya untuk membuka foto.'},
+  {t:'#lg',h:'Dokumentasi di popup',p:'Klik pipa atau manhole yang bertanda kegiatan: dokumentasi fotonya tampil di bagian bawah popup. Ketuk fotonya untuk membuka ukuran besar.'}]:[]),
  {t:'.hb',h:'Panel dan tema',p:'<b>Panel</b> menyembunyikan atau menampilkan panel kiri agar peta lebih luas (di komputer). <b>Tema</b> mengganti mode terang atau gelap. <b>Panduan</b> membuka kembali tutorial ini.'},
  {c:true,h:'Selesai',p:'Anda siap memakai dashboard. Kalau butuh panduan lagi, klik tombol <b>Panduan</b> di bagian atas halaman.'}
 ];
@@ -232,29 +236,82 @@ const tBtn=document.createElement('button');tBtn.className='btn';tBtn.id='tourBt
 const hbx=document.querySelector('.hb');hbx.insertBefore(tBtn,hbx.firstChild);
 if(!tSeen()&&location.hash!=='#unggah')setTimeout(tOpen,700);
 
-/* ===== FOTO DOKUMENTASI LAPANGAN =====
-   Petugas mengunggah foto lewat tombol "Foto" di kanan atas peta. Foto disimpan ke Google Drive lewat Google Apps Script
-   (lihat foto/Code.gs dan README bagian "Foto dokumentasi lapangan"). Daftar foto dibaca kembali dari alamat yang sama
-   dan ditampilkan sebagai ikon kamera. Tautan https://cwis-06.github.io/Dashboard-CWIS-06/#unggah langsung membuka formulir. */
+/* ===== DOKUMENTASI KEGIATAN LAPANGAN =====
+   Petugas mengunggah foto lewat tombol "Foto" (kanan atas peta). Foto disimpan ke Google Drive lewat Google Apps Script
+   (lihat foto/Code.gs dan README bagian B8). Di peta, foto tidak ditampilkan satu per satu: setiap lokasi kegiatan
+   diberi tanda kecil bergeser dari titiknya (angka = jumlah foto). Isi dokumentasi muncul di popup pipa atau manhole
+   yang diklik. Peta hanya menampilkan kegiatan 7 hari ke belakang dari tanggal yang dipilih di bar atas peta. */
 map.createPane('pf').style.zIndex=646;
-const FIC=L.divIcon({className:'fo',html:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',iconSize:[26,26],iconAnchor:[13,13],popupAnchor:[0,-13]});
+if(FOTO_URL)L.Popup.mergeOptions({autoPanPaddingTopLeft:[16,84]});
+const TZ='Asia/Jakarta',HARI=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'],BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const ymd=d=>d.toLocaleDateString('sv-SE',{timeZone:TZ});
+const dPlus=(s,n)=>{const q=s.split('-').map(Number);return new Date(Date.UTC(q[0],q[1]-1,q[2]+n)).toISOString().slice(0,10)};
+const dTxt=(s,full)=>{const q=s.split('-').map(Number),w=new Date(Date.UTC(q[0],q[1]-1,q[2])).getUTCDay();return (full?HARI[w]+', ':'')+q[2]+' '+(full?BLN[q[1]-1]:BLN[q[1]-1].slice(0,3))+' '+q[0]};
+const fTime=w=>{const d=new Date(w);return isNaN(d)?'':d.toLocaleTimeString('id-ID',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false}).replace(':','.')};
 const drvUrl=(id,w)=>'https://drive.google.com/thumbnail?id='+encodeURIComponent(id)+'&sz=w'+w;
-function fotoPop(p){const d=p.w?new Date(p.w):null,t=d&&!isNaN(d)?d.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'}):'–';
- return '<div class="pp"><h3>Foto dokumentasi</h3>'+(p.k?'<p class="sub">'+esc(p.k)+'</p>':'')+'<a href="https://drive.google.com/file/d/'+encodeURIComponent(p.id)+'/view" target="_blank" rel="noopener"><img class="fi" src="'+drvUrl(p.id,700)+'" alt="Foto dokumentasi" loading="lazy"></a><table><tr><th>Waktu</th><td>'+esc(t)+'</td></tr><tr><th>Petugas</th><td>'+esc(p.n)+'</td></tr>'+(p.d?'<tr><th>Keterangan</th><td>'+esc(p.d)+'</td></tr>':'')+'</table><p class="sm">Ketuk foto untuk membuka ukuran penuh di Google Drive.</p></div>'}
-let FOTOS=[],fAuto=false;
+let fDate=ymd(new Date()),FOTOS=[],fAuto=false,fLast=[];const fMarks=new Map();
+const fWin=()=>({a:dPlus(fDate,-6),b:fDate});
+const fInWin=p=>{const w=fWin();return p.day>=w.a&&p.day<=w.b};
+const fRange=()=>{const w=fWin(),x=dTxt(w.a),y=dTxt(w.b);return (w.a.slice(0,4)===w.b.slice(0,4)?x.replace(/ \d{4}$/,''):x)+' – '+y};
+const fSort=(a,b)=>new Date(b.w)-new Date(a.w);
+const fWho=p=>esc(p.n)+(p.t&&p.t!=='Umum'?' · '+esc(p.t):'');
+const fReady=()=>typeof MH!=='undefined'&&!!MH&&typeof PIPES!=='undefined'&&!!PIPES;
+/* Mengaitkan foto ke manhole atau pipa: lewat ID yang diisi petugas, atau manhole terdekat dalam radius 25 m. */
+function fLink(p){if(p._l!==undefined)return p._l;if(!fReady())return null;let r=null;const id=String(p.k||'').trim().toLowerCase(),mll=x=>[x.geometry.coordinates[1],x.geometry.coordinates[0]];
+ if(id){let x=MH.features.find(z=>String(z.properties.manhole_id).toLowerCase()===id);
+  if(x)r={t:'m',id:x.properties.manhole_id,ll:mll(x),f:x};
+  else{x=PIPES.features.find(z=>String(z.properties.pipe_id).toLowerCase()===id);
+   if(x){const c=x.geometry.type==='LineString'?x.geometry.coordinates:x.geometry.coordinates.flat(),m=c[Math.floor(c.length/2)];r={t:'p',id:x.properties.pipe_id,ll:[m[1],m[0]],f:x}}}}
+ if(!r){const q=L.latLng(p.lat,p.lng);let best=25;MH.features.forEach(x=>{if(isRef(x.properties))return;const d=q.distanceTo(mll(x));if(d<best){best=d;r={t:'m',id:x.properties.manhole_id,ll:mll(x),f:x}}})}
+ return p._l=r}
+const fRow=(p,i)=>'<button type="button" class="fdi" data-i="'+i+'"><span class="ft"><b>'+esc(p.d||'Tanpa keterangan')+'</b><small>'+esc(dTxt(p.day,true))+' · '+fTime(p.w)+' · '+fWho(p)+'</small></span><img src="'+drvUrl(p.id,160)+'" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'"></button>';
+const fList=l=>{fLast=l;return '<div class="fdl">'+l.map(fRow).join('')+'</div>'};
+/* Bagian "Dokumentasi kegiatan" di popup pipa atau manhole (dipanggil dari popP dan popM). */
+function fDocs(id){if(!FOTO_URL||!FOTOS.length)return '';const k=String(id).toLowerCase(),all=FOTOS.filter(p=>{const r=fLink(p);return r&&String(r.id).toLowerCase()===k});if(!all.length)return '';
+ const inw=all.filter(fInWin).sort(fSort),old=all.length-inw.length;
+ return '<h4>Dokumentasi kegiatan</h4>'+(inw.length?fList(inw):'<p class="sm">Tidak ada kegiatan pada '+esc(fRange())+'.</p>')+(old?'<p class="sm">'+old+' dokumentasi lain di luar rentang ini. Ganti tanggal di bar atas peta untuk melihatnya.</p>':'')}
+function fBadgePop(o){if(o.r&&o.r.t==='m')return popM(o.r.f.properties);if(o.r&&o.r.t==='p')return popP(o.r.f.properties);
+ return '<div class="pp"><h3>Kegiatan lapangan</h3><p class="sub">Titik GPS petugas, '+esc(fRange())+'</p><h4>Dokumentasi kegiatan</h4>'+fList(o.list)+'</div>'}
+function fBar(){if(!FOTO_URL)return;const t=ymd(new Date());$('fdD').value=fDate;$('fdD').max=t;$('fdN').disabled=fDate>=t;
+ $('fdL').textContent='Kegiatan '+fRange()+' · '+fMarks.size+' lokasi, '+FOTOS.filter(fInWin).length+' foto'}
+function fotoRender(tries){SL.foto.clearLayers();fMarks.clear();have.foto=0;tries=tries||0;
+ if(!fReady()&&tries<25)setTimeout(()=>fotoRender(tries+1),400);   // tunggu data pipa dan manhole supaya foto bisa dikaitkan
+ const g=new Map();FOTOS.filter(fInWin).forEach(p=>{const r=fLink(p),k=r?r.t+':'+r.id:'x:'+p.lat.toFixed(5)+','+p.lng.toFixed(5);let o=g.get(k);if(!o){o={k,r,ll:r?r.ll:[p.lat,p.lng],list:[]};g.set(k,o)}o.list.push(p)});
+ g.forEach(o=>{o.list.sort(fSort);const hot=o.list[0].day===fDate;
+  const m=L.marker(o.ll,{pane:'pf',keyboard:false,icon:L.divIcon({className:'fa'+(hot?' hot':''),html:'<b>'+o.list.length+'</b>',iconSize:[22,22],iconAnchor:[-5,27],popupAnchor:[0,-6],tooltipAnchor:[34,-16]})})
+   .bindTooltip((o.r?o.r.id:'Titik GPS')+' · '+o.list.length+' foto · '+dTxt(o.list[0].day),{direction:'right'}).bindPopup(()=>fBadgePop(o),{maxWidth:340}).addTo(SL.foto);
+  fMarks.set(o.k,m);have.foto++});
+ fBar();lyDraw();syncStatic()}
+function fSetDate(s){const t=ymd(new Date());if(!/^\d{4}-\d{2}-\d{2}$/.test(s||''))return;fDate=s>t?t:s;map.closePopup();fotoRender();if(!FNW.hidden)fnRender()}
 function fotoLoad(){if(!FOTO_URL)return;
- fetch(FOTO_URL,{cache:'no-store'}).then(r=>r.json()).then(a=>{SL.foto.clearLayers();have.foto=0;FOTOS=[];
-  (Array.isArray(a)?a:[]).forEach(p=>{if(!isFinite(p.lat)||!isFinite(p.lng)||!p.id)return;p.m=L.marker([p.lat,p.lng],{pane:'pf',icon:FIC,keyboard:false}).bindPopup(()=>fotoPop(p),{maxWidth:300}).addTo(SL.foto);FOTOS.push(p);have.foto++});
-  lyDraw();syncStatic();
+ fetch(FOTO_URL,{cache:'no-store'}).then(r=>r.json()).then(a=>{
+  FOTOS=(Array.isArray(a)?a:[]).filter(p=>p&&p.id&&isFinite(p.lat)&&isFinite(p.lng)).map(p=>{p.lat=+p.lat;p.lng=+p.lng;p.day=/^\d{4}-\d{2}-\d{2}$/.test(p.tg||'')?p.tg:(isNaN(new Date(p.w))?'':ymd(new Date(p.w)));return p}).filter(p=>p.day);
+  fotoRender();
   if(!fAuto){fAuto=true;let seen=false;try{seen=sessionStorage.getItem('cwis06_fnew')==='1'}catch(e){}
-   if(FOTO_AUTO&&FOTOS.length&&!seen&&tSeen()&&!tOn&&FUP.hidden&&location.hash!=='#unggah'){try{sessionStorage.setItem('cwis06_fnew','1')}catch(e){}fnOpen()}}}).catch(()=>{})}
+   if(FOTO_AUTO&&FOTOS.some(fInWin)&&!seen&&tSeen()&&!tOn&&FUP.hidden&&location.hash!=='#unggah'){try{sessionStorage.setItem('cwis06_fnew','1')}catch(e){}fnOpen()}}}).catch(()=>{})}
 
+/* ----- Penampil foto (lightbox) ----- */
+const FLB=document.createElement('div');FLB.id='flb';FLB.hidden=true;
+FLB.innerHTML='<div class="bx" role="dialog" aria-modal="true" aria-labelledby="flbH"><div class="im"><img id="flbI" alt="Foto dokumentasi"></div><div class="cp"><h3 id="flbH"></h3><div class="mt" id="flbM"></div><div class="ac"><button type="button" class="btn" id="flbP">‹ Sebelumnya</button><span class="sm" id="flbC"></span><button type="button" class="btn" id="flbN">Berikutnya ›</button><span class="sp"></span><a class="btn" id="flbD" target="_blank" rel="noopener">Buka di Drive</a><button type="button" class="btn" id="flbX">Tutup</button></div></div></div>';
+document.body.appendChild(FLB);
+let flL=[],flI=0;
+function flbShow(i){flI=(i+flL.length)%flL.length;const p=flL[flI];$('flbI').src=drvUrl(p.id,1600);$('flbH').textContent=p.d||'Tanpa keterangan';
+ $('flbM').innerHTML='<span class="chip">'+esc(dTxt(p.day,true))+' · '+fTime(p.w)+'</span>'+(p.k?'<span class="chip">'+esc(p.k)+'</span>':'')+'<span class="chip">'+esc(p.n)+'</span>'+(p.t&&p.t!=='Umum'?'<span class="chip">'+esc(p.t)+'</span>':'');
+ $('flbC').textContent=(flI+1)+' / '+flL.length;$('flbD').href='https://drive.google.com/file/d/'+encodeURIComponent(p.id)+'/view';$('flbP').disabled=$('flbN').disabled=flL.length<2}
+function flbOpen(l,i){flL=l.slice();FLB.hidden=false;flbShow(i)}
+$('flbP').onclick=()=>flbShow(flI-1);$('flbN').onclick=()=>flbShow(flI+1);$('flbX').onclick=()=>{FLB.hidden=true};
+FLB.addEventListener('click',e=>{if(e.target===FLB)FLB.hidden=true});
+document.addEventListener('keydown',e=>{if(FLB.hidden)return;e.stopImmediatePropagation();if(e.key==='Escape')FLB.hidden=true;else if(e.key==='ArrowLeft')flbShow(flI-1);else if(e.key==='ArrowRight')flbShow(flI+1)},true);
+map.on('popupopen',e=>{const el=e.popup.getElement();if(!el)return;el.querySelectorAll('.fdi').forEach(b=>{b.onclick=()=>flbOpen(fLast,+b.dataset.i)})});
+
+/* ----- Formulir unggah ----- */
 const FUP=document.createElement('div');FUP.id='fup';FUP.hidden=true;
 FUP.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="fupH"><h3 id="fupH">Unggah foto dokumentasi</h3>'
  +'<label class="f">Nama petugas<input id="fN" type="text" autocomplete="name"></label>'
  +'<label class="f">Kode akses<input id="fK" type="password" autocomplete="off"></label>'
  +'<label class="f">ID manhole atau pipa (opsional)<input id="fI" type="text" list="fIL" autocomplete="off" placeholder="mis. MHJ_06_0752"></label><datalist id="fIL"></datalist>'
- +'<label class="f">Keterangan (opsional)<textarea id="fD" rows="2" maxlength="300"></textarea></label>'
+ +'<label class="f">Tanggal kegiatan<input id="fT" type="date"></label>'
+ +'<label class="f">Keterangan kegiatan<textarea id="fD" rows="2" maxlength="300" placeholder="mis. Pekerjaan grouting shaft"></textarea></label>'
  +'<div class="fb"><button type="button" class="btn" id="fCam">Ambil foto</button><button type="button" class="btn" id="fGal">Pilih dari galeri</button></div>'
  +'<input type="file" id="fFc" accept="image/*" capture="environment" hidden><input type="file" id="fFg" accept="image/*" multiple hidden>'
  +'<div class="fth" id="fTh"></div>'
@@ -288,12 +345,13 @@ async function fKecil(file){let bm;
  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.8));
  return await new Promise((ok,no)=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result).split(',')[1]);fr.onerror=no;fr.readAsDataURL(blob)})}
 function fOpen(){if(tOn)tClose();map.closePopup();if(mOn)msrSet(false);if(mob())sh(0);
+ const hi=ymd(new Date());$('fT').max=hi;$('fT').min=dPlus(hi,-60);$('fT').value=hi;
  $('fN').value=LS('fo_nama');$('fK').value=LS('fo_kode');$('fMsg').textContent='';
  const ids=[];if(typeof MH!=='undefined'&&MH)MH.features.forEach(x=>{if(!isRef(x.properties))ids.push(x.properties.manhole_id)});if(typeof PIPES!=='undefined'&&PIPES)PIPES.features.forEach(x=>ids.push(x.properties.pipe_id));
  $('fIL').innerHTML=ids.map(v=>'<option value="'+esc(v)+'">').join('');
  FUP.hidden=false;fLoc();fRefresh()}
 const fClose=()=>{FUP.hidden=true};
-async function fKirim(){if(fBusy)return;const nama=$('fN').value.trim(),pin=$('fK').value.trim(),m=$('fMsg'),idv=$('fI').value.trim(),q=fPt(idv),src=document.querySelector('[name=fsrc]:checked').value,pt=src==='id'&&q?q:fGps;
+async function fKirim(){if(fBusy)return;const nama=$('fN').value.trim(),pin=$('fK').value.trim(),m=$('fMsg'),idv=$('fI').value.trim(),q=fPt(idv),src=document.querySelector('[name=fsrc]:checked').value,pt=src==='id'&&q?q:fGps,tg=$('fT').value||ymd(new Date());
  if(!nama){m.textContent='Isi nama petugas.';return}if(!pin){m.textContent='Isi kode akses.';return}
  if(!fFiles.length){m.textContent='Tambahkan minimal satu foto.';return}
  if(!pt){m.textContent='Lokasi belum tersedia. Ambil ulang lokasi atau isi ID manhole atau pipa yang valid.';return}
@@ -301,29 +359,46 @@ async function fKirim(){if(fBusy)return;const nama=$('fN').value.trim(),pin=$('f
  try{const total=fFiles.length;let noShare=false;
   for(let i=0;i<total;i++){m.textContent='Mengunggah foto '+(i+1)+' dari '+total+'...';
    const b64=await fKecil(fFiles[0]);
-   const r=await fetch(FOTO_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kode_akses:pin,nama:nama,kode:idv,keterangan:$('fD').value.trim(),lat:pt.lat,lng:pt.lng,akurasi:src==='gps'&&fGps?fGps.acc:'',sumber:src==='id'&&q?'titik '+q.nm:'gps',foto:b64})});
+   const r=await fetch(FOTO_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kode_akses:pin,nama:nama,kode:idv,tanggal:tg,keterangan:$('fD').value.trim(),lat:pt.lat,lng:pt.lng,akurasi:src==='gps'&&fGps?fGps.acc:'',sumber:src==='id'&&q?'titik '+q.nm:'gps',foto:b64})});
    const j=await r.json();if(!j.ok)throw new Error(j.pesan||'Server menolak unggahan');if(j.bagikan===false)noShare=true;
    fFiles.shift();fThumbs()}
-  toast(noShare?'Foto terunggah, tetapi folder Drive belum dibagikan sehingga gambar belum tampil. Hubungi admin.':'Foto berhasil diunggah');$('fD').value='';fClose();fotoLoad();map.setView([pt.lat,pt.lng],Math.max(map.getZoom(),18))}
+  toast(noShare?'Foto terunggah, tetapi folder Drive belum dibagikan sehingga gambar belum tampil. Hubungi admin.':'Foto berhasil diunggah');
+  $('fD').value='';fClose();const w=fWin();if(tg<w.a||tg>w.b)fDate=tg;fotoLoad();map.setView([pt.lat,pt.lng],Math.max(map.getZoom(),18))}
  catch(e){m.textContent='Gagal mengunggah: '+(e.message||e)+'. Periksa sinyal dan kode akses, lalu coba lagi.'}
  finally{fBusy=false;$('fS').disabled=false}}
 $('fCam').onclick=()=>$('fFc').click();$('fGal').onclick=()=>$('fFg').click();
 $('fFc').onchange=e=>{fAdd(e.target.files);e.target.value=''};$('fFg').onchange=e=>{fAdd(e.target.files);e.target.value=''};
 $('fI').oninput=()=>fRefresh();$('fRe').onclick=fLoc;$('fX').onclick=fClose;$('fS').onclick=fKirim;
 document.addEventListener('keydown',e=>{if(!FUP.hidden&&e.key==='Escape')fClose()});
+
+/* ----- Daftar kegiatan terbaru (rentang 7 hari menurut tanggal di bar atas peta) ----- */
 const FNW=document.createElement('div');FNW.id='fnew';FNW.hidden=true;
-FNW.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="fnH"><div class="fhd"><h3 id="fnH">Foto kegiatan terbaru</h3><button type="button" class="btn" id="fnX">Tutup</button></div><label class="f" id="fnTl">Tampilkan foto dari tim<select id="fnT"></select></label><div id="fnL"></div></div>';
+FNW.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="fnH"><div class="fhd"><h3 id="fnH">Kegiatan terbaru</h3><button type="button" class="btn" id="fnX">Tutup</button></div><p class="sm" id="fnR"></p><label class="f" id="fnTl">Tampilkan dari tim<select id="fnT"></select></label><div id="fnL"></div></div>';
 document.body.appendChild(FNW);
-const fnTime=w=>{const d=new Date(w);return isNaN(d)?'–':d.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})};
-function fnRender(){const t=$('fnT').value,a=FOTOS.filter(p=>!t||p.t===t).sort((x,y)=>new Date(y.w)-new Date(x.w)).slice(0,12);
- $('fnL').innerHTML=a.length?a.map(p=>'<button type="button" class="fni" data-i="'+FOTOS.indexOf(p)+'"><img src="'+drvUrl(p.id,240)+'" alt="" loading="lazy"><span><b>'+esc(p.k||'Tanpa ID')+'</b><small>'+esc(fnTime(p.w))+' · '+esc(p.n)+(p.t?' · '+esc(p.t):'')+'</small>'+(p.d?'<em>'+esc(p.d)+'</em>':'')+'</span></button>').join(''):'<p class="sm">Belum ada foto.</p>'}
+let fnShown=[];
+function fnRender(){const t=$('fnT').value,a=FOTOS.filter(p=>fInWin(p)&&(!t||p.t===t)).sort(fSort);fnShown=a;
+ $('fnR').textContent='Rentang '+fRange()+' ('+a.length+' foto). Ubah tanggal lewat bar di atas peta.';
+ let h='',cur='';a.forEach((p,i)=>{if(p.day!==cur){cur=p.day;h+='<div class="fdh"><span>'+esc(dTxt(cur,true))+'</span><small>'+a.filter(x=>x.day===cur).length+' foto</small></div>'}
+  h+='<div class="fni"><button type="button" class="fgo" data-i="'+i+'"><b>'+esc(p.d||'Tanpa keterangan')+'</b><small>'+esc(p.k||'Tanpa ID')+' · '+fTime(p.w)+' · '+fWho(p)+'</small></button><button type="button" class="fim" data-i="'+i+'" aria-label="Lihat foto"><img src="'+drvUrl(p.id,160)+'" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'"></button></div>'});
+ $('fnL').innerHTML=h||'<p class="sm">Belum ada kegiatan pada rentang ini.</p>'}
 function fnOpen(){const ts=[...new Set(FOTOS.map(p=>p.t).filter(Boolean))].sort();$('fnTl').hidden=ts.length<2;$('fnT').innerHTML='<option value="">Semua tim</option>'+ts.map(t=>'<option>'+esc(t)+'</option>').join('');fnRender();FNW.hidden=false}
 $('fnT').onchange=fnRender;$('fnX').onclick=()=>{FNW.hidden=true};
 FNW.addEventListener('click',e=>{if(e.target===FNW)FNW.hidden=true});
-$('fnL').onclick=e=>{const b=e.target.closest('.fni');if(!b)return;const p=FOTOS[+b.dataset.i];if(!p)return;FNW.hidden=true;if(mob())sh(0);
- if(!vis.foto){vis.foto=true;lyDraw()}syncStatic();map.setView([p.lat,p.lng],Math.max(map.getZoom(),19));setTimeout(()=>p.m.openPopup(),50)};
+$('fnL').onclick=e=>{const im=e.target.closest('.fim'),go=e.target.closest('.fgo');
+ if(im){flbOpen(fnShown,+im.dataset.i);return}if(!go)return;const p=fnShown[+go.dataset.i];if(!p)return;
+ FNW.hidden=true;if(mob())sh(0);if(!vis.foto){vis.foto=true;lyDraw()}syncStatic();
+ const r=fLink(p),ll=r?r.ll:[p.lat,p.lng],k=r?r.t+':'+r.id:'x:'+p.lat.toFixed(5)+','+p.lng.toFixed(5);
+ map.setView(ll,Math.max(map.getZoom(),19));setTimeout(()=>{const m=fMarks.get(k);if(m)m.openPopup()},80)};
 document.addEventListener('keydown',e=>{if(!FNW.hidden&&e.key==='Escape')FNW.hidden=true});
-const NBTN=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.DomUtil.create('button','gps fbtn');b.id='fnBtn';b.title='Foto kegiatan terbaru';b.setAttribute('aria-label','Foto kegiatan terbaru');
+
+/* ----- Bar tanggal di atas peta ----- */
+const FDT=document.createElement('div');FDT.id='fdt';FDT.hidden=!FOTO_URL;
+FDT.innerHTML='<div class="r"><button type="button" class="btn" id="fdP" aria-label="Hari sebelumnya">‹</button><input type="date" id="fdD" aria-label="Tanggal akhir rentang"><button type="button" class="btn" id="fdN" aria-label="Hari berikutnya">›</button><button type="button" class="btn" id="fdT">Hari ini</button></div><div class="sm" id="fdL"></div>';
+$('map').appendChild(FDT);L.DomEvent.disableClickPropagation(FDT);L.DomEvent.disableScrollPropagation(FDT);
+$('fdD').onchange=e=>fSetDate(e.target.value);$('fdP').onclick=()=>fSetDate(dPlus(fDate,-1));$('fdN').onclick=()=>fSetDate(dPlus(fDate,1));$('fdT').onclick=()=>fSetDate(ymd(new Date()));
+fBar();
+
+const NBTN=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.DomUtil.create('button','gps fbtn');b.id='fnBtn';b.title='Kegiatan terbaru';b.setAttribute('aria-label','Kegiatan terbaru');
  b.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 9"/></svg><span>Terbaru</span>';
  L.DomEvent.disableClickPropagation(b);b.onclick=fnOpen;return b}});
 const FBTN=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.DomUtil.create('button','gps fbtn');b.id='fotoBtn';b.title='Unggah foto dokumentasi';b.setAttribute('aria-label','Unggah foto dokumentasi');

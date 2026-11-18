@@ -25,12 +25,12 @@ Buka alamat dashboard di browser (Chrome, Edge, Firefox, atau Safari, di kompute
 | Cari | Ketik ID manhole atau pipa (misalnya `MHJ_06_0752`), nama jalan, atau material di kotak pencarian. Tekan `/` untuk langsung ke kotak cari. |
 | Tampilan peta | Tombol **Metode** mewarnai pipa berdasarkan metode (Jacking atau Open Trench). Tombol **Progres** mewarnai berdasarkan persen progres. |
 | Layer peta | Nyalakan atau matikan pipa lateral, manhole, pipa collecting, pipa persil, inspection chamber, house inlet, zona, dan batas RW. |
-| Peta dasar | Pilih OpenStreetMap, CARTO terang, citra satelit Esri, **Ortofoto CWIS-06**, atau tanpa peta dasar. |
+| Peta dasar | Pilih OpenStreetMap, citra satelit Esri, **Ortofoto CWIS-06**, atau tanpa peta dasar. |
 | Filter | Saring berdasarkan zona, kelas pipa (Primary, Secondary, Tertiary), dan status (belum mulai, berjalan, selesai). Tombol **Reset** mengembalikan semuanya. |
 | Progres per zona | Klik satu zona untuk memfilter dan memperbesar peta ke zona itu. |
 | Popup | Klik pipa atau manhole untuk melihat lokasi, elevasi, kedalaman, dan status progres. |
 | Ukur jarak dan luas | Klik tombol penggaris di kanan atas peta, pilih **Jarak** atau **Luas**, lalu klik titik demi titik. Hasil tampil di panel. **Urungkan**, **Hapus**, atau **Tutup** (Esc) untuk mengatur ukuran. |
-| Foto dokumentasi | Ikon kamera di peta adalah foto dari petugas lapangan. Klik ikonnya untuk melihat foto, waktu, petugas, dan keterangan. Petugas mengunggah lewat tombol **Foto** di kanan atas peta (lihat Bagian B8). |
+| Kegiatan lapangan | Tanda bulat kecil di dekat manhole atau pipa berarti ada kegiatan di sana (angka = jumlah foto, kuning berdenyut = kegiatan pada tanggal yang dipilih). Klik pipa atau manhole itu untuk melihat dokumentasi fotonya di bagian bawah popup. Bar tanggal di atas peta membatasi tampilan pada **7 hari ke belakang** dari tanggal yang dipilih. Tombol **Terbaru** menampilkan daftar kegiatan. Petugas mengunggah lewat tombol **Foto** (lihat Bagian B8). |
 | Panduan | Tombol **Panduan** di header membuka tutorial langkah demi langkah. Tutorial juga muncul otomatis saat pertama kali dashboard dibuka. |
 | GPS | Tombol lokasi di kanan atas peta menampilkan posisi Anda (butuh izin lokasi dari browser). |
 | Tema | Tombol **Tema** mengganti mode terang atau gelap. |
@@ -188,7 +188,7 @@ TIFF tidak bisa ditampilkan langsung oleh browser, dan GitHub menolak file di at
    git push
    ```
    Ulangi untuk zoom 16-17 dan 18-20.
-5. Di dashboard, pilih **Peta dasar > Ortofoto CWIS-06**. Ortofoto tampil di atas OpenStreetMap, jadi area di luar cakupan TIFF tetap berlatar peta.
+5. Di dashboard, pilih **Peta dasar > Ortofoto CWIS-06**. Ortofoto tampil sendiri (tanpa OpenStreetMap), jadi area di luar cakupan TIFF kosong dan tile baru muncul mulai zoom 12.
 
 File `.tif` dan `.tiff` diabaikan oleh git (lihat `.gitignore`) supaya TIFF asli tidak ikut terunggah. Jika ukuran folder tile melebihi sekitar 500 MB, kurangi zoom maksimum.
 
@@ -272,7 +272,7 @@ Jika `FOTO_URL` dikosongkan, fitur foto tidak tampil sama sekali.
 1. Buka dashboard di HP, atau langsung lewat tautan `https://cwis-06.github.io/Dashboard-CWIS-06/#unggah` (tautan ini bisa disimpan sebagai bookmark atau dijadikan QR code).
 2. Ketuk tombol **Foto** di kanan atas peta. Izinkan akses lokasi dan kamera bila diminta.
 3. Isi **nama petugas** dan **kode akses**. Keduanya diingat di HP itu untuk lain kali.
-4. Isi **ID manhole atau pipa** (opsional, ada saran otomatis) dan keterangan singkat.
+4. Isi **ID manhole atau pipa** (opsional, ada saran otomatis), **tanggal kegiatan** (otomatis hari ini, boleh sampai 60 hari ke belakang), dan **keterangan kegiatan**, misalnya "Pekerjaan grouting".
 5. Ketuk **Ambil foto** (atau **Pilih dari galeri**), lalu tunggu status lokasi menunjukkan GPS didapat.
 6. Ketuk **Unggah**. Peta otomatis memperbesar ke lokasi foto yang baru.
 
@@ -282,9 +282,36 @@ Soal lokasi:
 - Untuk **foto dari galeri**, GPS yang terbaca adalah posisi petugas saat mengunggah, bukan posisi saat memotret. Isi ID manhole atau pipa, lalu pilih "Titik manhole/pipa di atas" supaya foto ditempatkan di titik itu.
 - Foto otomatis diperkecil di HP sebelum dikirim (sisi terpanjang 1600 px), jadi hemat kuota dan cepat.
 
-### Foto kegiatan terbaru
+### Struktur folder rekap di Drive
 
-Tombol **Terbaru** di kanan atas peta membuka daftar 12 foto terakhir lengkap dengan gambar kecil, waktu, petugas, ID, dan keterangan. Mengetuk satu foto memperbesar peta ke lokasinya dan membuka fotonya. Jendela ini juga muncul otomatis sekali per sesi saat dashboard dibuka (kecuali saat panduan pertama kali tampil). Untuk mematikannya, ubah `FOTO_AUTO` di awal `js/app.js` menjadi `false`.
+Setiap foto otomatis disimpan di folder `Rekap Foto` (di dalam folder induk Anda) dengan susunan bulan, pekan, dan hari. Folder dibuat sendiri bila belum ada:
+
+```
+Rekap Foto/
+  2026-11 November/
+    Pekan 2026-11-14 s.d. 2026-11-20/        (pekan berjalan Sabtu sampai Jumat)
+      2026-11-17 Selasa/
+        20261117_145700_MHJ_06_0753_Fiqri.jpg
+```
+
+- Folder ditentukan oleh **tanggal kegiatan** yang dipilih petugas, bukan jam unggah.
+- Pekan yang melintasi dua bulan (misalnya Sabtu 28 Nov sampai Jumat 4 Des) muncul di kedua folder bulan sesuai tanggal fotonya.
+- Zona waktu memakai WIB (`ZONA_WAKTU` di `Code.gs`).
+- Foto lama yang diunggah sebelum fitur ini bisa dirapikan dengan menjalankan fungsi `susunUlang` sekali dari editor Apps Script.
+
+Di Google Sheet, tiap baris foto juga mencatat kolom `tanggal`, `pekan`, `bulan`, dan `link_foto`. Tab **Rekap** (dibuat oleh `setup`) menghitung otomatis jumlah foto per hari, per pekan, dan per bulan.
+
+### Tampilan kegiatan di dashboard
+
+- **Bar tanggal** di atas peta: pilih tanggal akhir lewat kalender, tanda panah, atau tombol **Hari ini**. Peta hanya menampilkan kegiatan **7 hari ke belakang** dari tanggal itu.
+- **Tanda kegiatan**: bulat kecil yang bergeser sedikit dari titik manhole atau pipa. Angka menunjukkan jumlah foto. Warna kuning berdenyut berarti ada kegiatan pada tanggal yang dipilih, dan tanda polos berarti kegiatan di hari-hari sebelumnya dalam rentang itu.
+- **Popup pipa atau manhole**: bagian **Dokumentasi kegiatan** di bagian bawah memuat keterangan, waktu, petugas, dan gambar kecil. Ketuk satu baris untuk membuka foto ukuran besar dengan keterangan lengkap, dan gunakan tombol Sebelumnya dan Berikutnya untuk berpindah foto.
+- **Pengaitan foto**: foto dikaitkan ke manhole atau pipa lewat ID yang diisi petugas. Bila ID kosong atau salah, dipakai manhole terdekat dalam radius 25 m. Foto yang jauh dari manhole manapun tampil sebagai tanda di titik GPS-nya.
+- Layer **Tanda kegiatan lapangan** di panel Layer peta bisa dimatikan.
+
+### Kegiatan terbaru
+
+Tombol **Terbaru** di kanan atas peta membuka daftar kegiatan pada rentang 7 hari yang sedang dipilih, dikelompokkan per hari. Setiap baris menampilkan **keterangan kegiatan** lebih dulu, lalu ID, jam, dan petugas, dengan gambar kecil di sisi kanan. Mengetuk teksnya memperbesar peta ke lokasi kegiatan dan membuka popupnya. Mengetuk gambar kecilnya membuka foto ukuran besar. Jendela ini juga muncul otomatis sekali per sesi saat dashboard dibuka (kecuali saat panduan pertama kali tampil). Untuk mematikannya, ubah `FOTO_AUTO` di awal `js/app.js` menjadi `false`.
 
 ### Kode akses per tim
 
@@ -298,13 +325,13 @@ Nama tim dicatat di kolom `tim` pada Sheet dan tampil di daftar foto terbaru. Ji
 
 ### Di mana keterangan tersimpan
 
-Keterangan yang diisi petugas tersimpan di dua tempat: kolom `keterangan` pada Google Sheet (bersama petugas, ID, koordinat, dan waktu), dan deskripsi file di Google Drive (klik kanan file > Detail). Keterangan juga tampil di popup foto dan di daftar foto terbaru.
+Keterangan yang diisi petugas tersimpan di dua tempat: kolom `keterangan` pada Google Sheet (bersama petugas, ID, koordinat, tanggal, dan waktu), dan deskripsi file di Google Drive (klik kanan file > Detail). Keterangan juga tampil di popup pipa atau manhole, di penampil foto, dan di daftar kegiatan terbaru.
 
 ### Mengelola foto
 
 - **Menyembunyikan foto** dari peta: di Google Sheet `Foto`, ubah kolom `tampil` dari TRUE menjadi FALSE. File di Drive tetap ada. Perubahan tampil dalam sekitar 1 menit.
 - **Mengubah kode akses**: ubah `KODE_AKSES` di Apps Script, lalu **Deploy > Manage deployments > Edit (ikon pensil) > Version: New version > Deploy**. Alamat web app tetap sama.
-- **Setiap perubahan isi script** perlu langkah "New version" di atas supaya berlaku.
+- **Setiap perubahan isi script** perlu langkah "New version" di atas supaya berlaku, dan jalankan `setup` sekali lagi setelah menempel `Code.gs` baru (menambah kolom `tanggal`, `pekan`, `bulan`, `link_foto` dan tab Rekap).
 - Foto dan Sheet ada di akun Google pembuat script, jadi gunakan akun milik tim yang akan terus dipakai, bukan akun pribadi yang bisa berhenti dipakai.
 
 ### Hal yang perlu diperhatikan
