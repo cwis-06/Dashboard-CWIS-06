@@ -38,8 +38,10 @@ echo [2/6] Menghitung ulang kolom otomatis ...
 
 echo [3/6] Memeriksa kualitas data ...
 %SQL% -A -t -F " | " -c "SELECT level, check_name, n, coalesce(contoh,'') FROM sewer.qa_report() WHERE n > 0 ORDER BY CASE level WHEN 'ERROR' THEN 0 WHEN 'PERINGATAN' THEN 1 ELSE 2 END, check_name" || goto :gagal
-set "QAERR=0"
-for /f "usebackq" %%N in (`call %SQL% -A -t -c "SELECT count(*) FROM sewer.qa_report() WHERE level='ERROR' AND n>0"`) do set "QAERR=%%N"
+rem Tanpa "-v ON_ERROR_STOP=1": tanda = di dalam for /f dibaca cmd sebagai pemisah dan merusak perintah.
+set "QAERR="
+for /f "usebackq" %%N in (`call "%PSQL%" -w -q -X -A -t -c "SELECT count(*) FROM sewer.qa_report() WHERE level='ERROR' AND n>0"`) do set "QAERR=%%N"
+if not defined QAERR ( echo Jumlah temuan ERROR tidak bisa dibaca. Data TIDAK diunggah. & goto :gagal )
 if not "%QAERR%"=="0" if "%QA_WAJIB%"=="1" (
   echo Ada %QAERR% jenis temuan ERROR. Perbaiki di QGIS, Save Edits, lalu ulangi. Data TIDAK diunggah.
   goto :gagal

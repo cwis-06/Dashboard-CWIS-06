@@ -178,4 +178,3 @@ table.t th:first-child,table.t td:first-child{text-align:left}table.t th{color:v
 #flb .im img{max-height:46vh}
 }
 .pp .rptw{margin:10px 0 2px}.pp .rpt{width:100%;display:flex;justify-content:center;align-items:center;gap:6px;font-weight:600}
-#puBox{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}#puBox .bar i{background:#7048b8}

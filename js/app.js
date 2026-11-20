@@ -39,8 +39,8 @@ const m3=v=>v==null?null:fmt(v,3)+' m';
 const fD=v=>{const m=String(v||'').match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);return m?dTxt(m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0')):''};   // tanggal dari data, ditampilkan mis. 30 Okt 2026
 const tglRows=p=>row('Rencana mulai pekerjaan',fD(p.plan_date)||'–')+row('Realisasi mulai pekerjaan',fD(p.actual_date)||'Belum dimulai');
 const progRows=p=>'work_stage' in p
- ?'<h4>Progres</h4><table>'+row('Status',esc(p.stage_label))+row('Progres fisik',fmt(pc(p),0)+'%')+puRow(p)+tglRows(p)+'</table>'   // manhole: status, persentase, dan tanggal mulai
- :'<h4>Progres</h4><table>'+row('Tahap',esc(p.stage_label))+row('Progres fisik',fmt(pc(p),0)+'%')+puRow(p)+tglRows(p)+'</table>';
+ ?'<h4>Progres</h4><table>'+row('Status',esc(p.stage_label))+row('Progres',fmt(pc(p),0)+'%')+tglRows(p)+'</table>'   // manhole: status, persentase, dan tanggal mulai
+ :'<h4>Progres</h4><table>'+row('Tahap',esc(p.stage_label))+row('Progres',fmt(pc(p),0)+'%')+tglRows(p)+'</table>';
 function popP(p){return '<div class="pp"><h3>'+esc(p.pipe_id)+'</h3><p class="sub">'+esc(p.pipe_type)+', '+esc(p.method)+', '+esc(p.material)+', Ø'+fmt(p.diameter_mm,0)+' mm</p><table>'+
  row('Dari manhole',esc(p.from_mh))+row('Ke manhole',esc(p.to_mh))+row('Panjang',p.length_m==null?null:fmt(p.length_m,2)+' m')+row('Slope',p.slope_pct==null?null:fmt(p.slope_pct,2)+' %')+row('Lokasi',esc(p.location_name))+row('Zona',p.zone)+
  '</table><h4>Ujung hulu</h4><table>'+row('Muka tanah (GL)',m3(p.up_gl))+row('Invert',m3(p.up_ie))+row('Kedalaman (GL − invert)',m3(dep(p.up_gl,p.up_ie)))+
@@ -352,16 +352,6 @@ function fotoLoad(){if(!FOTO_URL)return;
 
 
 
-/* ===== Progres PU (capaian terhadap jadwal kontrak MPP). Hanya persen capaian, tanpa bobot atau nilai kontrak. ===== */
-let PU=null;
-const puVal=p=>!PU?null:p.pipe_id!=null?PU.pipa[p.pipe_id]:p.manhole_id!=null?PU.manhole[p.manhole_id]:null;
-const puRow=p=>{const v=puVal(p);return v==null?'':row('Capaian PU <small>('+esc(PU.periode)+')</small>',fmt(v,1)+'%')};
-function puPanel(){if(!PU)return;let b=$('puBox');if(!b){const pg=$('kPct')&&$('kPct').closest('.pg');if(!pg)return;b=document.createElement('div');b.id='puBox';b.className='pg pu';pg.after(b)}
- const z=Object.entries(PU.zona||{}).sort((a,b)=>a[0]-b[0]);
- b.innerHTML='<span class="sm">Progres PU (jadwal kontrak) · '+esc(PU.periode)+'</span><br><b>'+fmt(PU.total,2)+'%</b><div class="bar"><i style="width:'+Math.min(100,PU.total)+'%"></i></div>'+
-  (z.length?'<dl class="k">'+z.map(([k,v])=>'<dt>Capaian zona '+esc(k)+'</dt><dd>'+fmt(v,1)+'%</dd>').join('')+'</dl>':'')+
-  '<p class="sm">Progres PU dihitung dari bobot kontrak, termasuk pekerjaan non-fisik (pengadaan, mobilisasi, SMKK), jadi bisa berbeda dengan progres fisik di atas. '+esc(PU.sumber||'')+'.</p>'}
-fetch('data/progres_pu.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&j.pipa){PU=j;puPanel()}}).catch(()=>{});
 /* ===== Ekspor laporan pekerjaan per titik (manhole, test pit, bore log) atau per span (pipa) ===== */
 const rptBtn=(t,id)=>'<p class="rptw"><button type="button" class="btn rpt" data-rt="'+t+'" data-ri="'+esc(id)+'">⤓ Ekspor laporan pekerjaan</button></p>';
 const mhNo=v=>{const m=String(v||'').match(/(\d{4}[A-Z]?)$/i);return m?m[1].toUpperCase():null};
@@ -380,11 +370,11 @@ function rptOpen(t,id){const F=findF(t,id);if(!F){toast('Data '+id+' tidak ditem
  if(t==='p'){title='Span pipa '+p.pipe_id;sub=[p.method,p.pipe_type,p.material,'Ø'+fmt(p.diameter_mm,0)+' mm'].filter(Boolean).join(', ');
   mhs=[p.from_mh,p.to_mh].map(m=>findF('m',m)).filter(Boolean);ids=ids.concat(mhs.map(x=>x.properties.manhole_id));
   H('Data span');R.push(T([['Dari manhole',esc(p.from_mh)],['Ke manhole',esc(p.to_mh)],['Panjang',num(p.length_m,2,' m')],['Slope',num(p.slope_pct,2,' %')],['Lokasi',esc(p.location_name)],['Zona',p.zone],['Kedalaman hulu (GL − invert)',num(dep(p.up_gl,p.up_ie),3,' m')],['Kedalaman hilir (GL − invert)',num(dep(p.lw_gl,p.lw_ie),3,' m')]]));
-  H('Progres span');R.push(T([['Tahap',esc(p.stage_label||'Belum mulai')],['Progres fisik',fmt(pc(p),0)+'%'],['Capaian PU'+(PU?' ('+PU.periode+')':''),puVal(p)==null?'':fmt(puVal(p),1)+'%'],['Rencana mulai',tdate(p.plan_date)],['Realisasi mulai',fD(p.actual_date)||'Belum dimulai']]));
+  H('Progres span');R.push(T([['Tahap',esc(p.stage_label||'Belum mulai')],['Progres',fmt(pc(p),0)+'%'],['Rencana mulai',tdate(p.plan_date)],['Realisasi mulai',fD(p.actual_date)||'Belum dimulai']]));
   H('Manhole di ujung span');R.push('<table class="g"><tr><th>Manhole</th><th>Posisi</th><th>Tahap</th><th>Progres</th><th>Rencana</th><th>Realisasi</th></tr>'+mhs.map((x,i)=>{const q=x.properties;csv.push([sec,q.manhole_id,(q.stage_label||'Belum mulai')+' '+fmt(pc(q),0)+'%']);return '<tr><td>'+esc(q.manhole_id)+'</td><td>'+(q.manhole_id===p.from_mh?'Hulu':'Hilir')+'</td><td>'+esc(q.stage_label||'Belum mulai')+'</td><td>'+fmt(pc(q),0)+'%</td><td>'+tdate(q.plan_date)+'</td><td>'+(fD(q.actual_date)||'–')+'</td></tr>'}).join('')+'</table>')}
  else if(t==='m'){title='Manhole '+p.manhole_id;sub=[p.mh_type,p.shaft?'shaft '+p.shaft:'','Ø'+fmt(p.diameter_mm,0)+' mm'].filter(Boolean).join(', ');mhs=[F];
   H('Data manhole');R.push(T([['Lokasi',esc(p.location_name)],['Zona',p.zone],['Metode pipa',esc(mmeth(p.manhole_id)||'–')],['Muka tanah (GL)',num(p.ground_elev,3,' m')],['Invert terdalam',num(lowIE(p),3,' m')],['Kedalaman ke invert terdalam',num(dep(p.ground_elev,lowIE(p)),3,' m')]]));
-  H('Progres manhole');R.push(T([['Status',esc(p.stage_label||'Belum mulai')],['Progres fisik',fmt(pc(p),0)+'%'],['Capaian PU'+(PU?' ('+PU.periode+')':''),puVal(p)==null?'':fmt(puVal(p),1)+'%'],['Rencana mulai',tdate(p.plan_date)],['Realisasi mulai',fD(p.actual_date)||'Belum dimulai']]));
+  H('Progres manhole');R.push(T([['Status',esc(p.stage_label||'Belum mulai')],['Progres',fmt(pc(p),0)+'%'],['Rencana mulai',tdate(p.plan_date)],['Realisasi mulai',fD(p.actual_date)||'Belum dimulai']]));
   const ps=PIPES.features.filter(x=>x.properties.from_mh===p.manhole_id||x.properties.to_mh===p.manhole_id);
   if(ps.length){H('Pipa yang tersambung');R.push('<table class="g"><tr><th>Pipa</th><th>Metode</th><th>Panjang</th><th>Tahap</th><th>Progres</th></tr>'+ps.map(x=>{const q=x.properties;csv.push([sec,q.pipe_id,(q.stage_label||'Belum mulai')+' '+fmt(pc(q),0)+'%']);return '<tr><td>'+esc(q.pipe_id)+'</td><td>'+esc(q.method)+'</td><td>'+num(q.length_m,1,' m')+'</td><td>'+esc(q.stage_label||'Belum mulai')+'</td><td>'+fmt(pc(q),0)+'%</td></tr>'}).join('')+'</table>')}}
  else{const tp=t==='t';title=(tp?'Test pit ':'Bore log ')+id;sub=esc(p.status||'');const m=MH.features.find(x=>mhNo(x.properties.manhole_id)===mhNo(p.mh_ref));if(m){mhs=[m];ids.push(m.properties.manhole_id)}
