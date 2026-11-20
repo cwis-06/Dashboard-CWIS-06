@@ -1,7 +1,8 @@
 -- =====================================================================
 -- OTOMASI MONITOR: perbaikan view pipa, pemeriksaan kualitas data (QA),
 -- dan riwayat progres harian.
--- Dijalankan oleh setup_otomasi.bat setelah otomasi_qgis.sql (aman diulang).
+-- Dijalankan oleh setup_otomasi.bat (aman diulang). Isinya sama dengan yang
+-- berlaku di database per 20 November 2026 (lihat sql/skema_db_aktual.sql).
 --
 --   * v_lateral_pipe   : tahap pipa dicocokkan ke ref_stage dengan metode pipa
 --                        (Open Trench / Jacking) ATAU metode 'ALL'. Sebelumnya hanya
@@ -91,7 +92,7 @@ UNION ALL
 SELECT 'PERINGATAN', 'Inspection chamber masih memakai ID sementara (TMP)',
        (SELECT count(*) FROM w4), (SELECT array_to_string((array_agg(id ORDER BY id))[1:5], ', ') FROM w4)
 UNION ALL
-SELECT 'INFO', 'Pipa lateral tanpa plan_date (kurva S belum bisa dibuat)',
+SELECT 'INFO', 'Pipa lateral tanpa plan_date (jadwal rencana belum lengkap)',
        (SELECT count(*) FROM i1), (SELECT array_to_string((array_agg(id ORDER BY id))[1:5], ', ') FROM i1)
 UNION ALL
 SELECT 'INFO', 'Manhole tanpa plan_date',

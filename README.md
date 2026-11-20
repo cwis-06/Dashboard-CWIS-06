@@ -103,7 +103,7 @@ Database yang dipakai adalah PostgreSQL/PostGIS dengan database `db_cwis06`, sch
    set DB_USER=editor_cwis06    rem nama user Anda
    ```
 
-   `config_lokal.bat` dibaca oleh `update_dashboard.bat`, `setup_otomasi.bat`, dan `cek_database.bat`, dan **tidak ikut terunggah** ke GitHub. Jadi pengaturan tiap orang tidak saling menimpa. Bila tidak ada `config_lokal.bat`, dipakai nilai bawaan (`localhost`, `5432`, `db_cwis06`, `postgres`).
+   `config_lokal.bat` dibaca lewat `_koneksi.bat` (pengaturan koneksi bersama untuk `update_dashboard.bat`, `setup_otomasi.bat`, dan `cek_database.bat`), dan **tidak ikut terunggah** ke GitHub. Jadi pengaturan tiap orang tidak saling menimpa. Bila tidak ada `config_lokal.bat`, dipakai nilai bawaan (`localhost`, `5432`, `db_cwis06`, `postgres`).
 3. Di QGIS, tambahkan koneksi PostGIS: **Layer > Add Layer > Add PostGIS Layers > New**, isi host, port, database, user, dan password yang sama.
 
 Jika database ada di komputer lain, komputer itu harus bisa diakses dari jaringan Anda (satu jaringan atau lewat VPN), dan PostgreSQL harus mengizinkan koneksi dari komputer Anda (`listen_addresses` dan `pg_hba.conf`). Hubungi pengelola database untuk ini.
@@ -123,7 +123,7 @@ Skrip tidak menyimpan password di dalam file. Ada dua cara:
 
 Hanya **satu orang** yang perlu menjalankan ini, yaitu pengelola database. Klik dua kali `setup_otomasi.bat` di folder repo, dan ulangi setiap kali `otomasi_qgis_monitor.sql` berubah. Jika Anda hanya mengedit data, lewati langkah ini.
 
-Skrip hanya menjalankan file di daftar `FILES` (saat ini `otomasi_qgis_monitor.sql`: perbaikan view `v_lateral_pipe`, pemeriksaan kualitas data `qa_report`, riwayat progres `progress_snapshot`).
+Skrip hanya menjalankan `otomasi_qgis_monitor.sql` (view `v_lateral_pipe`, pemeriksaan kualitas data `qa_report`, riwayat progres `progress_snapshot`) dalam satu transaksi; bila gagal, tidak ada yang berubah.
 
 **Penting:** trigger dan fungsi lain di database (kolom otomatis, validasi tahap, ujung pipa ikut bergeser, pengaman hapus manhole) sudah disesuaikan langsung di database dan berbeda dari file SQL lama. File lama disimpan di `sql/arsip/` hanya sebagai riwayat; **jangan dijalankan** karena akan menimpa versi yang berlaku. Struktur database yang sebenarnya dicatat otomatis oleh `update_dashboard.bat` ke `sql/skema_db_aktual.sql` setiap kali dijalankan.
 
@@ -239,12 +239,12 @@ git push
 | Peta kosong, panel menunjukkan "-" dan 0% | Ada error JavaScript atau file data tidak termuat. Buka F12 > Console dan lihat pesan merahnya. Pastikan `data/v_lateral_pipe.geojson` dan `data/v_manhole.geojson` ada. |
 | Layer baru tidak muncul | Layer opsional hanya muncul bila file GeoJSON-nya ada di `data/`. Cek pesan "Dilewati" saat skrip berjalan. |
 | `Folder ini bukan repo Git` | `update_dashboard.bat` harus berada di folder hasil `git clone`, satu folder dengan `index.html`. |
-| `ogr2ogr tidak ditemukan` atau `Folder QGIS tidak ditemukan` | QGIS harus terpasang di `C:\Program Files\QGIS ...`. Jika di lokasi lain, ubah baris pencarian QGIS di skrip. |
+| `QGIS tidak ditemukan` | QGIS dicari di `C:\Program Files\QGIS ...`. Jika di lokasi lain, isi `QGIS_DIR` di `config_lokal.bat`. |
 | `psql tidak ditemukan` | Skrip berhenti, karena psql dibutuhkan untuk penghitungan ulang dan pemeriksaan data. Pasang PostgreSQL Command Line Tools, atau isi `PSQL` di `config_lokal.bat`. |
-| `Penghitungan ulang gagal` atau `Pemeriksaan data tidak bisa dijalankan` | Otomasi database belum terpasang atau versinya lama. Jalankan `setup_otomasi.bat`. |
+| `[2/6] ... Gagal` atau langkah 3 berhenti | Otomasi database belum terpasang atau versinya lama. Jalankan `setup_otomasi.bat`. |
 | `Ada ... jenis temuan ERROR` | Baca daftar temuan di atasnya (kolom terakhir berisi contoh ID), perbaiki di QGIS, Save Edits, lalu jalankan lagi. |
 | `sedang berjalan di jendela lain` | Ada jendela update lain yang masih terbuka. Bila tidak ada, hapus file kunci yang disebutkan; kunci yang lebih dari 30 menit dihapus otomatis. |
-| `Push ditolak` atau `fetch first` | Ada commit baru dari orang lain. Jalankan `git pull --rebase --autostash`, lalu `git push`. |
+| `Push ditolak 3 kali` atau `fetch first` | Ada commit baru dari orang lain. Jalankan `git pull --rebase --autostash`, lalu `git push`. |
 | `file exceeds GitHub's file size limit of 100 MB` | Ada file besar (biasanya TIFF) ikut ter-commit. Pastikan `.gitignore` berisi `*.tif` dan `*.tiff`, lalu batalkan commit dengan `git reset --soft HEAD~1`. |
 | `Authentication failed` atau `403` | Login GitHub kedaluwarsa atau tidak punya hak tulis. Login ulang, atau gunakan Personal Access Token. |
 | Ortofoto tidak muncul (404 di tab Network) | Format dan jalur tile harus `tiles/ortho/{z}/{x}/{y}.jpg`. Cek ekstensi (`.jpg`, bukan `.png`) dan zoom 12-20 di folder `tiles/ortho`. |
@@ -400,8 +400,10 @@ Dashboard-CWIS-06/
   tiles/ortho/            tile ortofoto (z/x/y.jpg)
   otomasi_qgis_monitor.sql  view pipa, pemeriksaan data, riwayat progres
   sql/skema_db_aktual.sql struktur database yang berlaku + isi ref_stage (ditulis skrip)
-  sql/                    skema awal, migrasi, diagnosa (tidak dijalankan otomatis)
-  sql/arsip/              file otomasi lama, hanya riwayat, jangan dijalankan
+  sql/isi_plan_date_msp.sql  tanggal rencana dari MSP dan urutan jacking Zona 2 (dijalankan manual)
+  sql/diagnosa.sql        query baca-saja untuk cek_database.bat
+  sql/arsip/              skema awal, migrasi, dan otomasi lama; hanya riwayat, jangan dijalankan
+  _koneksi.bat            pengaturan koneksi bersama (dipanggil skrip lain, tidak dijalankan sendiri)
   setup_otomasi.bat       pasang otomasi_qgis_monitor.sql (oleh pengelola database)
   cek_database.bat        baca struktur database ke diagnosa_hasil.txt (tidak mengubah apa pun)
   update_dashboard.bat    hitung ulang, periksa data, ekspor, dan push ke GitHub

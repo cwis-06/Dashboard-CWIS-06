@@ -156,7 +156,7 @@ UNION ALL
 SELECT 'PERINGATAN', 'Inspection chamber masih memakai ID sementara (TMP)',
        (SELECT count(*) FROM w4), (SELECT array_to_string((array_agg(id ORDER BY id))[1:5], ', ') FROM w4)
 UNION ALL
-SELECT 'INFO', 'Pipa lateral tanpa plan_date (kurva S belum bisa dibuat)',
+SELECT 'INFO', 'Pipa lateral tanpa plan_date (jadwal rencana belum lengkap)',
        (SELECT count(*) FROM i1), (SELECT array_to_string((array_agg(id ORDER BY id))[1:5], ', ') FROM i1)
 UNION ALL
 SELECT 'INFO', 'Manhole tanpa plan_date',
