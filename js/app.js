@@ -15,6 +15,7 @@ const mm=new Map(),byId=new Map(),f={zone:'',cls:'',st:''},off=new Set();
 const FOTO_URL='https://script.google.com/macros/s/AKfycbxJY-E6pWKLg0ThWJmMugaAqEmGtb-idTTxeHOsSXAG7CGeUItM8ZOneTpa-__4xlE/exec';   // alamat web app Google Apps Script (berakhiran /exec) untuk foto dokumentasi. Kosongkan untuk menonaktifkan fitur foto.
 const FOTO_AUTO=false;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil). Dimatikan di HP terlepas dari ini (lihat FOTO_AUTO_MOBILE).
 const FOTO_AUTO_MOBILE=false;   // sama, tapi khusus layar sempit (<=820px). Biarkan false: di HP jendela besar ini mengganggu saat baru buka halaman.
+const SHOW_HI_STATS=false;   // false: sembunyikan jumlah SR dan HI (baris "House inlet" di ringkasan progres, tabel "House inlet per zona", dan angka di daftar layer). true: tampilkan lagi.
 const HI_MINZ=18;   // house inlet (SR/HI/HIP) baru tampil mulai zoom ini. Naikkan bila masih padat, turunkan bila ingin lebih cepat muncul.
 /* ======================= */
 const map=L.map('map',{preferCanvas:true,zoomControl:false,maxZoom:28,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,renderer:L.canvas({tolerance:5})});L.control.zoom({position:'topright'}).addTo(map);
@@ -27,8 +28,8 @@ map.createPane('pz').style.zIndex=300;map.createPane('pm').style.zIndex=645;
 const HM=L.CircleMarker.extend({_clickTolerance(){return this.options.hit||0}});   // area klik titik dibuat lebih lebar dari gambarnya
 const cm=(ll,o)=>new HM(ll,o);
 const HIS=new Set(['sr','hic','hip']);
-function restack(){[SL.persil,SL.collect,gP,SL.hip,SL.hic,SL.sr,SL.ic,gM].forEach(g=>{if(map.hasLayer(g))g.bringToFront()})}
-const SL={zona:L.featureGroup(),rw:L.featureGroup(),collect:L.featureGroup(),persil:L.featureGroup(),ic:L.featureGroup(),hip:L.featureGroup(),hic:L.featureGroup(),sr:L.featureGroup(),foto:L.featureGroup()},sById=new Map(),vis={pipe:true,mh:true,collect:false,persil:false,ic:false,hip:false,hic:false,sr:false,zona:true,rw:false,foto:true},have={};
+function restack(){[SL.persil,SL.collect,gP,SL.hip,SL.hic,SL.sr,SL.ic,SL.tp,gM].forEach(g=>{if(map.hasLayer(g))g.bringToFront()})}
+const SL={zona:L.featureGroup(),rw:L.featureGroup(),collect:L.featureGroup(),persil:L.featureGroup(),ic:L.featureGroup(),hip:L.featureGroup(),hic:L.featureGroup(),sr:L.featureGroup(),tp:L.featureGroup(),foto:L.featureGroup()},sById=new Map(),vis={pipe:true,mh:true,collect:false,persil:false,ic:false,hip:false,hic:false,sr:false,zona:true,rw:false,tp:true,foto:true},have={};
 L.DomEvent.disableClickPropagation($('lg'));
 const mmeth=id=>{const s=mm.get(id);return !s?null:s.size>1?'Campuran':[...s][0]};
 const colP=p=>cMode==='progress'?prog(p.progress_pct):p.method==='Jacking'?JK:OT;
@@ -55,7 +56,7 @@ const okM=p=>{const s=mm.get(p.manhole_id);return okZ(p)&&okS(p)&&(!f.cls||p.mh_
 const bar=p=>'<div class="bar"><i style="width:'+Math.min(100,p)+'%"></i></div>';
 function agg(list,kf){const g={};list.forEach(x=>{const p=x.properties,k=kf(p),l=p.length_m||0;(g[k]=g[k]||{n:0,l:0,d:0});g[k].n++;g[k].l+=l;g[k].d+=l*pc(p)/100});return g}
 function legend(){$('lg').innerHTML=(cMode==='method'?['Jacking','Open Trench'].map(k=>'<button class="btn'+(off.has(k)?' x':'')+'" data-m="'+k+'" title="Klik untuk menyembunyikan atau menampilkan"><i class="sw" style="background:'+(k==='Jacking'?JK:OT)+'"></i>'+k+'</button>').join('')+'<div><i class="sw" style="background:'+MX+'"></i>Manhole di sambungan kedua metode</div>':
- [['Belum mulai',G0],['1–49%','#f0a020'],['50–99%','#2f7fe0'],['Selesai','#2eaa5c']].map(a=>'<div><i class="sw" style="background:'+a[1]+'"></i>'+a[0]+'</div>').join(''))+(have.sr||have.hic||have.hip?'<div style="margin-top:4px">House inlet</div>'+['sr','hic','hip'].map(k=>'<div><i class="sw" style="'+(k==='hip'?'background:transparent;border:2px solid '+HIC.hip:'background:'+HIC[k])+'"></i>'+HIL[k]+'</div>').join(''):'')+'<p class="sm">Tebal garis menunjukkan kelas pipa. Lingkaran putus-putus adalah manhole paket sebelah.</p>'}
+ [['Belum mulai',G0],['1–49%','#f0a020'],['50–99%','#2f7fe0'],['Selesai','#2eaa5c']].map(a=>'<div><i class="sw" style="background:'+a[1]+'"></i>'+a[0]+'</div>').join(''))+(have.sr||have.hic||have.hip?'<div style="margin-top:4px">House inlet</div>'+['sr','hic','hip'].map(k=>'<div><i class="sw" style="'+(k==='hip'?'background:transparent;border:2px solid '+HIC.hip:'background:'+HIC[k])+'"></i>'+HIL[k]+'</div>').join(''):'')+(have.tp?'<div style="margin-top:4px">Test pit</div>'+[['Direncanakan',TPC.rencana],['Digali',TPC.digali],['Selesai',TPC.selesai]].map(a=>'<div><i class="sw" style="background:'+a[1]+';border:2px solid #5c3b1e"></i>'+a[0]+'</div>').join(''):'')+'<p class="sm">Tebal garis menunjukkan kelas pipa. Lingkaran putus-putus adalah manhole paket sebelah.</p>'}
 function render(fit){
  gP.clearLayers();gM.clearLayers();byId.clear();
  const P=PIPES.features.filter(x=>okP(x.properties)),M=MH.features.filter(x=>okM(x.properties)),W={Primary:5,Secondary:3.5,Tertiary:2.5};
@@ -75,7 +76,7 @@ function render(fit){
 }
 function resetFilters(){f.zone=f.cls=f.st='';off.clear();['fZone','fCls','fSt'].forEach(i=>$(i).value='');legend()}
 const hay=p=>Object.values(p).filter(v=>v!=null&&v!=='').join(' ').toLowerCase();
-const subt=i=>{const p=i.f.properties;if(i.t!=='p'&&i.t!=='m')return [p.hi_code||p.ic_type,p.zone_no==null?null:'zona '+p.zone_no,p.rw_label].filter(Boolean).join(', ');return i.t==='p'?p.method+', '+p.pipe_type+', Ø'+fmt(p.diameter_mm,0)+', '+fmt(p.length_m,1)+' m, zona '+p.zone:(isRef(p)?'Paket sebelah':(p.mh_type||'')+(p.shaft?', shaft '+p.shaft:'')+', zona '+p.zone)};
+const subt=i=>{const p=i.f.properties;if(i.t==='tp')return [p.status,p.location_name,p.zone==null?null:'zona '+p.zone].filter(Boolean).join(', ');if(i.t!=='p'&&i.t!=='m')return [p.hi_code||p.ic_type,p.zone_no==null?null:'zona '+p.zone_no,p.rw_label].filter(Boolean).join(', ');return i.t==='p'?p.method+', '+p.pipe_type+', Ø'+fmt(p.diameter_mm,0)+', '+fmt(p.length_m,1)+' m, zona '+p.zone:(isRef(p)?'Paket sebelah':(p.mh_type||'')+(p.shaft?', shaft '+p.shaft:'')+', zona '+p.zone)};
 function draw(){const sh=hits.slice(0,8),q=$('q').value.trim();
  $('res').innerHTML=sh.map((i,k)=>'<li role="option" data-i="'+k+'" class="'+(k===sel?'on':'')+'"><b>'+esc(i.id)+'</b><small>'+esc((KIND[i.t]||'')+': '+subt(i))+'</small></li>').join('');
  $('rc').textContent=q?(hits.length?hits.length+' hasil'+(hits.length>8?', 8 teratas ditampilkan':''):'Tidak ada hasil'):'Tekan / untuk mencari. Pencarian mencakup semua atribut.'}
@@ -107,22 +108,28 @@ $('q').addEventListener('keydown',e=>{const n=Math.min(hits.length,8);
  else if(e.key==='Enter'&&n)go(hits[Math.max(sel,0)]);else if(e.key==='Escape'){e.target.value='';search('')}});
 $('res').addEventListener('mousedown',e=>{const li=e.target.closest('li');if(li)go(hits[+li.dataset.i])});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();$('q').focus()}});
-const KIND={p:'Pipa lateral',m:'Manhole',collect:'Pipa collecting',persil:'Pipa persil',ic:'Inspection chamber',hi:'House inlet'};
-const SP=[{k:'zona',f:'zona',t:'Zona',id:'zone_name'},{k:'rw',f:'batas_rw',t:'Batas RW',id:'rw_label'},{k:'collect',f:'collecting_pipe',t:'Pipa collecting',id:'cp_id'},{k:'persil',f:'persil_pipe',t:'Pipa persil',id:'pp_id'},{k:'ic',f:'inspection_chamber',t:'Inspection chamber',id:'ic_id'},{k:'hi',f:'house_inlet',t:'House inlet',id:'hi_id'}];
+const KIND={p:'Pipa lateral',m:'Manhole',collect:'Pipa collecting',persil:'Pipa persil',ic:'Inspection chamber',hi:'House inlet',tp:'Test pit'};
+const SP=[{k:'zona',f:'zona',t:'Zona',id:'zone_name'},{k:'rw',f:'batas_rw',t:'Batas RW',id:'rw_label'},{k:'collect',f:'collecting_pipe',t:'Pipa collecting',id:'cp_id'},{k:'persil',f:'persil_pipe',t:'Pipa persil',id:'pp_id'},{k:'ic',f:'inspection_chamber',t:'Inspection chamber',id:'ic_id'},{k:'hi',f:'house_inlet',t:'House inlet',id:'hi_id'},{k:'tp',f:'test_pit',t:'Test pit',id:'tp_id'}];
 const HIK={HIP:'hip',HI:'hic',SR:'sr'},HIL={hip:'Potensi, belum disurvey',hic:'HI, disetujui tanpa pipa dalam rumah',sr:'SR, disetujui dengan pipa dalam rumah'},HIC={hip:'#868e96',hic:'#f59f00',sr:'#2b8a3e'},hcat=p=>HIK[String(p.hi_code||'').trim().toUpperCase()]||'hip';
 const SKIP=new Set(['attrs','fid','geom','updated_at','stage_code','hi_status','hi_kategori','has_inside_pipe','in_scope']);
 const nv=(k,v)=>typeof v==='boolean'?(v?'ya':'tidak'):typeof v!=='number'?esc(v):/lon|lat/.test(k)?v.toFixed(6):fmt(v,Number.isInteger(v)?0:3);
 const popG=(p,t,k)=>'<div class="pp"><h3>'+esc(p[k])+'</h3><p class="sub">'+t+'</p><table>'+Object.entries(p).filter(([a,v])=>!SKIP.has(a)&&a!==k&&v!=null&&v!=='').map(([a,v])=>row(esc(a.replace(/_/g,' ')),nv(a,v))).join('')+'</table></div>';
+/* Test pit (titik tespit): data dari tabel sewer.test_pit, diekspor ke data/test_pit.geojson */
+const TPF=new Map(),tpKey=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const tpSt=p=>{const t=String(p.status||'').toLowerCase();return /selesai|done|finish/.test(t)?'selesai':/gali|proses|jalan|ongoing|kerja/.test(t)?'digali':'rencana'};
+const TPC={rencana:G0,digali:'#f0a020',selesai:'#2eaa5c'},tpCol=p=>TPC[tpSt(p)];
+const popTP=p=>'<div class="pp"><h3>'+esc(p.tp_id)+'</h3><p class="sub">Test pit'+(p.status?', '+esc(p.status):'')+'</p><table>'+row('Lokasi',esc(p.location_name||'')||null)+row('Zona',p.zone)+row('Kedalaman galian',p.depth_m==null?null:fmt(Number(p.depth_m),2)+' m')+row('Muka tanah (GL)',p.ground_elev==null?null:m3(Number(p.ground_elev)))+row('Utilitas ditemukan',esc(p.utility_found||'')||null)+row('Rencana mulai pekerjaan',fD(p.plan_date)||'–')+row('Realisasi mulai pekerjaan',fD(p.actual_date)||'Belum dimulai')+row('Keterangan',esc(p.note||'')||null)+'</table>'+fDocs(p.tp_id)+'</div>';
 function buildStatic(s,g){const poly=s.k==='zona'||s.k==='rw';
  g.features.forEach(x=>{const p=x.properties,id=p[s.id],hk=s.k==='hi'?hcat(p):null,gk=hk||s.k,G=SL[gk];if(hk)p.kategori=HIL[hk];let l,inner;
-  if(x.geometry.type==='Point'){const c=x.geometry.coordinates;inner=l=cm([c[1],c[0]],s.k==='ic'?{hit:8,radius:5,color:'#fff',weight:1.2,fillColor:'#d6336c',fillOpacity:1}:hk==='hip'?{hit:7,radius:3.5,color:HIC.hip,weight:1.5,fillOpacity:0}:{hit:7,radius:hk==='sr'?4:3.5,color:'#fff',weight:.8,fillColor:HIC[hk],fillOpacity:1})}
+  if(x.geometry.type==='Point'){const c=x.geometry.coordinates;inner=l=cm([c[1],c[0]],s.k==='tp'?{hit:10,radius:7,color:'#5c3b1e',weight:2,fillColor:tpCol(p),fillOpacity:1}:s.k==='ic'?{hit:8,radius:5,color:'#fff',weight:1.2,fillColor:'#d6336c',fillOpacity:1}:hk==='hip'?{hit:7,radius:3.5,color:HIC.hip,weight:1.5,fillOpacity:0}:{hit:7,radius:hk==='sr'?4:3.5,color:'#fff',weight:.8,fillColor:HIC[hk],fillOpacity:1})}
   else{l=L.geoJSON(x,poly?{pane:'pz',interactive:false,style:{color:s.k==='zona'?'#7048b8':'#868e96',weight:s.k==='zona'?2.5:1.2,dashArray:s.k==='zona'?'8 5':'3 4',fillOpacity:.05}}:{style:{color:s.k==='collect'?'#c2255c':'#868e96',weight:s.k==='collect'?2.5:1.5,dashArray:s.k==='persil'?'2 4':null}});l.eachLayer(y=>{inner=y})}
   if(poly)inner.bindTooltip(String(id),{permanent:true,direction:'center',className:'plbl'+(s.k==='rw'?' rwl':'')});
-  else{inner.bindPopup(()=>popG(p,s.t,s.id),{maxWidth:340}).bindTooltip(String(id),{sticky:true});sById.set(id,inner);IDX.push({t:s.k,g:gk,f:x,id:String(id),h:hay(p)})}
+  else{inner.bindPopup(()=>s.k==='tp'?popTP(p):popG(p,s.t,s.id),{maxWidth:340}).bindTooltip(String(id),{sticky:true});sById.set(id,inner);IDX.push({t:s.k,g:gk,f:x,id:String(id),h:hay(p)})}
   if(hk)inner._zn=p.zone_no==null?'-':p.zone_no;
+  if(s.k==='tp'&&x.geometry.type==='Point'&&id!=null)TPF.set(tpKey(id),{t:'t',id:String(id),ll:[x.geometry.coordinates[1],x.geometry.coordinates[0]],f:x});
   G.addLayer(l);have[gk]=(have[gk]||0)+1})}
-const LY=[['pipe','Pipa lateral'],['mh','Manhole'],['collect','Pipa collecting'],['persil','Pipa persil'],['ic','Inspection chamber'],['sr','SR: HI dan pipa dalam rumah'],['hic','HI: tanpa pipa dalam rumah'],['hip','HIP: potensi, belum disurvey'],['zona','Zona'],['rw','Batas RW'],...(FOTO_URL?[['foto','Tanda kegiatan lapangan']]:[])];
-function lyDraw(){$('ly').innerHTML=LY.map(([k,n])=>{const has=k==='pipe'||k==='mh'||have[k];return '<label'+(HIS.has(k)?' class="hi"':'')+'><input type="checkbox" data-l="'+k+'"'+(vis[k]&&has?' checked':'')+(has?'':' disabled')+'><span>'+n+(has?'':' <small>(belum ada data)</small>')+(have[k]?' <small>'+fmt(have[k],0)+'</small>':'')+(HIS.has(k)&&HI_MINZ>0?' <small>· tampil di zoom ≥ '+HI_MINZ+'</small>':'')+'</span></label>'}).join('')+(HI_MINZ>0?'<p class="sm" style="grid-column:1/-1">House inlet muncul otomatis saat peta diperbesar sampai zoom '+HI_MINZ+'.</p>':'')}
+const LY=[['pipe','Pipa lateral'],['mh','Manhole'],['collect','Pipa collecting'],['persil','Pipa persil'],['ic','Inspection chamber'],['sr','SR: HI dan pipa dalam rumah'],['hic','HI: tanpa pipa dalam rumah'],['hip','HIP: potensi, belum disurvey'],['tp','Test pit'],['zona','Zona'],['rw','Batas RW'],...(FOTO_URL?[['foto','Tanda kegiatan lapangan']]:[])];
+function lyDraw(){$('ly').innerHTML=LY.map(([k,n])=>{const has=k==='pipe'||k==='mh'||have[k];return '<label'+(HIS.has(k)?' class="hi"':'')+'><input type="checkbox" data-l="'+k+'"'+(vis[k]&&has?' checked':'')+(has?'':' disabled')+'><span>'+n+(has?'':' <small>(belum ada data)</small>')+(have[k]&&(SHOW_HI_STATS||!HIS.has(k))?' <small>'+fmt(have[k],0)+'</small>':'')+(HIS.has(k)&&HI_MINZ>0?' <small>· tampil di zoom ≥ '+HI_MINZ+'</small>':'')+'</span></label>'}).join('')+(HI_MINZ>0?'<p class="sm" style="grid-column:1/-1">House inlet muncul otomatis saat peta diperbesar sampai zoom '+HI_MINZ+'.</p>':'')}
 function hiTable(){const z={};let n={sr:0,hic:0,hip:0};
  ['sr','hic','hip'].forEach(k=>SL[k].eachLayer(l=>{const q=l._zn==null?'-':l._zn;(z[q]=z[q]||{sr:0,hic:0,hip:0})[k]++;n[k]++}));
  if(!(n.sr+n.hic+n.hip))return;
@@ -214,7 +221,7 @@ const TOUR=[
  {t:'aside .seg',h:'Tampilan peta',p:'<b>Metode</b> mewarnai pipa berdasarkan metode kerja (Jacking atau Open Trench). <b>Progres</b> mewarnai pipa berdasarkan persen progres. Keterangan warna ada di legenda pada peta.'+MO},
  {t:'#lyBox',h:'Layer peta',p:'Buka bagian ini untuk menyalakan atau mematikan layer: pipa collecting, pipa persil, inspection chamber, batas RW, dan house inlet (SR, HI, HIP). House inlet awalnya mati. Setelah dicentang, titiknya muncul mulai zoom '+HI_MINZ+'.'+MO},
  {t:'#bmBox',h:'Peta dasar',p:'Ganti latar peta: OpenStreetMap, citra satelit Esri, <b>Ortofoto CWIS-06</b>, atau tanpa peta dasar. Ortofoto tampil sendiri tanpa peta lain, jadi area di luar cakupan foto akan kosong.'+MO},
- {t:'.pg',h:'Ringkasan progres',p:'Persentase progres dihitung berbobot panjang pipa yang tergambar. Di bawahnya ada panjang tergambar, panjang terpasang setara, jumlah ruas pipa, manhole yang selesai, dan jumlah house inlet.'+MO},
+ {t:'.pg',h:'Ringkasan progres',p:'Persentase progres dihitung berbobot panjang pipa yang tergambar. Di bawahnya ada panjang tergambar, panjang terpasang setara, jumlah ruas pipa, manhole yang selesai'+(SHOW_HI_STATS?', dan jumlah house inlet':'')+'.'+MO},
  {t:'.fl',h:'Filter',p:'Saring peta berdasarkan <b>zona</b>, <b>kelas pipa</b> (Primary, Secondary, Tertiary), dan <b>status</b> (belum mulai, berjalan, selesai). Tombol <b>Reset</b> mengembalikan semua filter.'+MO},
  {t:'#zones',h:'Progres per zona',p:'Klik satu zona untuk memfilter data dan memperbesar peta ke zona itu. Klik lagi untuk melepas pilihan.'+MO},
  {t:'#lg',h:'Klik objek di peta',p:'Klik pipa atau manhole untuk melihat detailnya: lokasi, elevasi, kedalaman, dan status progres. Legenda warna ada di kiri bawah peta, dan di HP lewat tombol <b>Legenda</b>.'},
@@ -279,6 +286,7 @@ function fLink(p){if(p._l!==undefined)return p._l;if(!fReady())return null;let r
   if(x)r={t:'m',id:x.properties.manhole_id,ll:mll(x),f:x};
   else{x=PIPES.features.find(z=>String(z.properties.pipe_id).toLowerCase()===id);
    if(x){const c=x.geometry.type==='LineString'?x.geometry.coordinates:x.geometry.coordinates.flat(),m=c[Math.floor(c.length/2)];r={t:'p',id:x.properties.pipe_id,ll:[m[1],m[0]],f:x}}}}
+ if(!r&&id){const t=TPF.get(tpKey(id));if(t)r=t}
  if(!r){const q=L.latLng(p.lat,p.lng);let best=25;MH.features.forEach(x=>{if(isRef(x.properties))return;const d=q.distanceTo(mll(x));if(d<best){best=d;r={t:'m',id:x.properties.manhole_id,ll:mll(x),f:x}}})}
  return p._l=r}
 const fNorm=x=>String(x||'').trim().replace(/\s+/g,' ').toLowerCase();
@@ -297,7 +305,7 @@ const fList=l=>{const g=fGrp(l);fLast=g;return '<div class="fdl">'+g.map((o,i)=>
 function fDocs(id){if(!FOTO_URL||!FOTOS.length)return '';const k=String(id).toLowerCase(),all=FOTOS.filter(p=>{const r=fLink(p);return r&&String(r.id).toLowerCase()===k});if(!all.length)return '';
  const inw=all.filter(fInWin).sort(fSort),old=all.length-inw.length;
  return '<h4>Dokumentasi kegiatan</h4>'+(inw.length?fList(inw):'<p class="sm">Tidak ada kegiatan pada '+esc(fRange())+'.</p>')+(old?'<p class="sm">'+old+' dokumentasi lain di luar rentang ini. Ganti tanggal di bar atas peta untuk melihatnya.</p>':'')}
-function fBadgePop(o){if(o.r&&o.r.t==='m')return popM(o.r.f.properties);if(o.r&&o.r.t==='p')return popP(o.r.f.properties);
+function fBadgePop(o){if(o.r&&o.r.t==='t')return popTP(o.r.f.properties);if(o.r&&o.r.t==='m')return popM(o.r.f.properties);if(o.r&&o.r.t==='p')return popP(o.r.f.properties);
  return '<div class="pp"><h3>Kegiatan lapangan</h3><p class="sub">Titik GPS petugas, '+esc(fRange())+'</p><h4>Dokumentasi kegiatan</h4>'+fList(o.list)+'</div>'}
 function fBar(){if(!FOTO_URL)return;const t=ymd(new Date());$('fdD').value=fDate;$('fdD').max=t;$('fdN').disabled=fDate>=t;
  $('fdL').textContent='Kegiatan '+fRange()+' · '+fMarks.size+' lokasi, '+FOTOS.filter(fInWin).length+' foto'}
@@ -340,7 +348,7 @@ const FUP=document.createElement('div');FUP.id='fup';FUP.hidden=true;
 FUP.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="fupH"><h3 id="fupH">Unggah foto dokumentasi</h3>'
  +'<label class="f">Nama petugas<input id="fN" type="text" autocomplete="name"></label>'
  +'<label class="f">Kode akses<input id="fK" type="password" autocomplete="off"></label>'
- +'<label class="f">ID manhole atau pipa (opsional)<input id="fI" type="text" list="fIL" autocomplete="off" placeholder="mis. MHJ_06_0752"></label><datalist id="fIL"></datalist>'
+ +'<label class="f">ID manhole, pipa, atau test pit (opsional)<input id="fI" type="text" list="fIL" autocomplete="off" placeholder="mis. MHJ_06_0752"></label><datalist id="fIL"></datalist>'
  +'<label class="f">Tanggal kegiatan<input id="fT" type="date"></label>'
  +'<label class="f">Keterangan kegiatan<textarea id="fD" rows="2" maxlength="300" placeholder="mis. Pekerjaan grouting shaft"></textarea></label>'
  +'<div class="fb"><button type="button" class="btn" id="fCam">Ambil foto</button><button type="button" class="btn" id="fGal">Pilih dari galeri</button></div>'
@@ -358,6 +366,7 @@ const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k)||'';localSt
 function fPt(id){id=String(id||'').trim().toLowerCase();if(!id)return null;let f;
  if(typeof MH!=='undefined'&&MH){f=MH.features.find(x=>String(x.properties.manhole_id).toLowerCase()===id);if(f)return{lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0],nm:f.properties.manhole_id}}
  if(typeof PIPES!=='undefined'&&PIPES){f=PIPES.features.find(x=>String(x.properties.pipe_id).toLowerCase()===id);if(f){const c=f.geometry.type==='LineString'?f.geometry.coordinates:f.geometry.coordinates.flat(),m=c[Math.floor(c.length/2)];return{lat:m[1],lng:m[0],nm:f.properties.pipe_id}}}
+ if(TPF.size){const t=TPF.get(tpKey(id));if(t)return{lat:t.ll[0],lng:t.ll[1],nm:t.id}}
  return null}
 function fRefresh(failed){const q=fPt($('fI').value),r=document.querySelectorAll('[name=fsrc]');
  $('fIn').textContent=q?q.nm:'manhole atau pipa';r[1].disabled=!q;
@@ -379,7 +388,7 @@ async function fKecil(file){let bm;
 function fOpen(){if(tOn)tClose();map.closePopup();if(mOn)msrSet(false);if(mob())sh(0);
  const hi=ymd(new Date());$('fT').max=hi;$('fT').min=dPlus(hi,-60);$('fT').value=hi;
  $('fN').value=LS('fo_nama');$('fK').value=LS('fo_kode');$('fMsg').textContent='';
- const ids=[];if(typeof MH!=='undefined'&&MH)MH.features.forEach(x=>{if(!isRef(x.properties))ids.push(x.properties.manhole_id)});if(typeof PIPES!=='undefined'&&PIPES)PIPES.features.forEach(x=>ids.push(x.properties.pipe_id));
+ const ids=[];if(typeof MH!=='undefined'&&MH)MH.features.forEach(x=>{if(!isRef(x.properties))ids.push(x.properties.manhole_id)});if(typeof PIPES!=='undefined'&&PIPES)PIPES.features.forEach(x=>ids.push(x.properties.pipe_id));TPF.forEach(t=>ids.push(t.id));
  $('fIL').innerHTML=ids.map(v=>'<option value="'+esc(v)+'">').join('');
  FUP.hidden=false;fLoc();fRefresh()}
 const fClose=()=>{FUP.hidden=true};
@@ -440,6 +449,7 @@ const FBTN=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.Dom
 if(FOTO_URL){map.addControl(new FBTN());map.addControl(new NBTN());fotoLoad();if(location.hash==='#unggah')setTimeout(fOpen,900)}
 
 
+if(!SHOW_HI_STATS){const tb=$('hit').closest('table'),hs=[$('kHi').previousElementSibling,$('kHi'),tb,tb&&tb.previousElementSibling];hs.forEach(e=>{if(e)e.style.display='none'})}
 $('lgT').onclick=()=>document.body.classList.toggle('lgon');
 legend();
 const NUM=['length_m','slope_pct','progress_pct','diameter_mm','depth_m','ground_elev','invert_elev','elev_downstream','elev_upstream_1','elev_upstream_2','elev_upstream_3','up_gl','up_ie','up_depth','lw_gl','lw_ie','lw_depth','drop_m'];
@@ -452,7 +462,7 @@ function start(){
  opt('fZone',[...new Set(PIPES.features.concat(MH.features).map(x=>x.properties.zone).filter(z=>z!=null))].sort((a,b)=>a-b).map(z=>[String(z),'Zona '+z]));
  opt('fCls',['Primary','Secondary','Tertiary'].map(c=>[c,c]));
  osm.addTo(map);bmDraw();map.fitBounds(L.geoJSON(PIPES).getBounds().pad(.05));render(false);lyDraw();
- Promise.allSettled(SP.map(s=>get('data/'+s.f+'.geojson').then(r=>{r.j.features=r.j.features.filter(x=>x.geometry);buildStatic(s,r.j)}))).then(()=>{lyDraw();syncStatic();legend();hiTable()});
+ Promise.allSettled(SP.map(s=>get('data/'+s.f+'.geojson').then(r=>{r.j.features=r.j.features.filter(x=>x.geometry);buildStatic(s,r.j)}))).then(()=>{lyDraw();syncStatic();legend();hiTable();if(FOTO_URL&&FOTOS.length){FOTOS.forEach(p=>{p._l=undefined});fotoRender()}});
 }
 Promise.all([get('data/v_lateral_pipe.geojson'),get('data/v_manhole.geojson')]).then(([a,b])=>{
  PIPES=norm(a.j);MH=norm(b.j);
