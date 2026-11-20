@@ -2,17 +2,17 @@
 -- BORE LOG / SOIL BORING CWIS-06 (layer baru)
 -- Sumber: sheet "DOKUMEN TESTPIT & GEORADAR & BORELOG", tab BORE LOG
 -- (20 November 2026). Hanya baris yang punya nomor manhole yang dimasukkan
--- (BH 01-11, 14-16, 18-22). BH 23 dan seterusnya belum punya manhole/lokasi;
+-- (BH 01-05, 07-11, 14-16, 18-22; BH 06 diganti BH 46 sesuai laporan WA, ditambah BH 47, MH 0772A, MH 0775). BH 23 dan seterusnya belum punya manhole/lokasi;
 -- tambahkan nanti lewat QGIS (cukup isi bh_no dan mh_ref, titik terisi dari manhole).
 -- BH 18 dan BH 20: koordinat di sheet sama dengan titik lain (salah salin),
--- jadi diambil dari posisi manhole. BH 06, 21, 22 tanpa koordinat: dari manhole.
+-- jadi diambil dari posisi manhole. BH 21, 22 tanpa koordinat: dari manhole.
 -- Dijalankan setup_otomasi.bat. Aman diulang (isian yang sudah ada tidak ditimpa).
 -- =====================================================================
 SET search_path = sewer, public;
 
 CREATE TABLE IF NOT EXISTS sewer.bore_log (
     bh_id        text PRIMARY KEY,                -- 'BH 01'; dibentuk otomatis dari bh_no
-    bh_no        integer NOT NULL UNIQUE,
+    bh_no        integer UNIQUE,                  -- kosong bila nomor BH belum diketahui
     zone         smallint,
     mh_ref       text,
     surface      text,
@@ -29,16 +29,21 @@ CREATE TABLE IF NOT EXISTS sewer.bore_log (
     updated_at   timestamptz NOT NULL DEFAULT now(),
     geom         geometry(Point, 32749)
 );
+ALTER TABLE sewer.bore_log ALTER COLUMN bh_no DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS bore_log_gix ON sewer.bore_log USING gist (geom);
 COMMENT ON TABLE sewer.bore_log IS 'Titik bore log / soil boring. Titik kosong diisi dari posisi manhole mh_ref.';
 
 CREATE OR REPLACE FUNCTION sewer.trg_bh() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-    IF NEW.bh_no IS NULL THEN
-        NEW.bh_no := NULLIF(regexp_replace(COALESCE(NEW.bh_id, ''), '\D', '', 'g'), '')::integer;
+    IF NEW.bh_no IS NULL AND NEW.bh_id ~* '^BH ?\d+$' THEN
+        NEW.bh_no := regexp_replace(NEW.bh_id, '\D', '', 'g')::integer;
     END IF;
-    IF NEW.bh_no IS NULL THEN RAISE EXCEPTION 'Nomor bore log (bh_no) wajib diisi'; END IF;
-    NEW.bh_id  := 'BH ' || CASE WHEN NEW.bh_no < 10 THEN '0' ELSE '' END || NEW.bh_no;
+    IF NEW.bh_no IS NOT NULL THEN
+        NEW.bh_id := 'BH ' || CASE WHEN NEW.bh_no < 10 THEN '0' ELSE '' END || NEW.bh_no;
+    ELSIF NEW.bh_id IS NULL AND NEW.mh_ref IS NOT NULL THEN
+        NEW.bh_id := 'BH di MH ' || substring(NEW.mh_ref from '(\d{4}[A-Z]?)$');   -- nomor BH belum diketahui
+    END IF;
+    IF NEW.bh_id IS NULL THEN RAISE EXCEPTION 'Isi bh_no, atau mh_ref bila nomor BH belum diketahui'; END IF;
     NEW.status := COALESCE(NULLIF(trim(NEW.status), ''), 'Direncanakan');
     IF NEW.geom IS NULL AND NEW.mh_ref IS NOT NULL THEN
         SELECT m.geom INTO NEW.geom FROM sewer.manhole m
@@ -69,7 +74,6 @@ INSERT INTO sewer.bore_log AS t
   (3, 2, 'MH_06_0747', 'Paving block', 'Selesai', DATE '2026-06-19', 4, 'https://drive.google.com/drive/folders/1tI5kmM_TW5gmyd2sXCskJHVd108ggHQa', ST_SetSRID(ST_MakePoint(442245.430, 9231198.271), 32749)),
   (4, 2, 'MH_06_0746', 'Paving block', 'Selesai', DATE '2026-06-25', 4, 'https://drive.google.com/drive/folders/1vCy4ETns4830pcaznNNwpgF0l9d4gYAE', ST_SetSRID(ST_MakePoint(442270.261, 9231183.166), 32749)),
   (5, 2, 'MH_06_0745', 'Paving block', 'Selesai', DATE '2026-06-26', 5, 'https://drive.google.com/drive/folders/167ozpRCncsabdjXsYGigFHwMdnEO5evb', ST_SetSRID(ST_MakePoint(442304.189, 9231167.401), 32749)),
-  (6, 2, 'MH_06_0755', 'Paving block', 'Direncanakan', NULL, NULL, NULL, NULL),
   (7, 2, 'MH_06_0744', 'Paving block', 'Selesai', DATE '2026-06-27', 4, 'https://drive.google.com/drive/folders/1BIAtpsacxQTLrbM4kS1Hax_nFAcTbbES', ST_SetSRID(ST_MakePoint(442355.406, 9231159.935), 32749)),
   (8, 2, 'MH_06_0742', 'Paving block', 'Selesai', DATE '2026-06-28', 4, 'https://drive.google.com/drive/folders/1jVzHsN7bACQet6tQdEW4uQtQgco6DTEL', ST_SetSRID(ST_MakePoint(442413.351, 9231158.560), 32749)),
   (9, 2, 'MH_06_0741', 'Paving block', 'Selesai', DATE '2026-06-30', 4, 'https://drive.google.com/drive/folders/12ys704Dt-FbzWIk9JidT3NuD9Rw1fOn6', ST_SetSRID(ST_MakePoint(442461.462, 9231145.661), 32749)),
@@ -90,3 +94,20 @@ ON CONFLICT (bh_id) DO UPDATE SET
     surface   = COALESCE(t.surface,   EXCLUDED.surface),
     doc_link  = COALESCE(t.doc_link,  EXCLUDED.doc_link),
     mh_ref    = COALESCE(t.mh_ref,    EXCLUDED.mh_ref);
+
+-- Tambahan dari laporan WhatsApp grup "CWIS 06 SITE KSO" (diekspor 20 November 2026).
+-- Mengikuti WhatsApp: MH 0755 = BH 46 (di sheet tercatat BH 06, jadi BH 06 dihapus
+-- bila masih berstatus Direncanakan). MH 0772A dan MH 0775 sudah di-borlog tetapi
+-- nomor BH-nya tidak disebut, jadi ID-nya 'BH di MH 0772A' / 'BH di MH 0775';
+-- isi bh_no di QGIS bila nomornya sudah diketahui.
+DELETE FROM sewer.bore_log WHERE bh_no = 6 AND status = 'Direncanakan';
+INSERT INTO sewer.bore_log AS t (bh_no, zone, mh_ref, status, exec_date, note) VALUES
+  (46,   2,    'MH_06_0755',  'Selesai', DATE '2026-09-15', 'WA SITE KSO 15/09/2026: setting alat, pagar, uji kebisingan dan getaran BH 46 MH 0755.'),
+  (47,   2,    'MH_06_0753',  'Selesai', DATE '2026-09-16', 'WA SITE KSO 16/09/2026: rambu, pagar, dan proses soil boring BH 47 MH 0753.'),
+  (NULL, 2,    'MH_06_0772A', 'Selesai', DATE '2026-09-12', 'WA SITE KSO 9-11/09/2026: proses soil boring MH 0772; 12/09/2026: penandatanganan BA borelog di MH 0772A.'),
+  (NULL, NULL, 'MH_06_0775',  'Selesai', DATE '2026-09-15', 'WA SITE KSO 15/09/2026: borlog on-going 10 m di MH 0775.')
+ON CONFLICT (bh_id) DO UPDATE SET
+    status    = CASE WHEN t.status = 'Direncanakan' THEN EXCLUDED.status ELSE t.status END,
+    exec_date = COALESCE(t.exec_date, EXCLUDED.exec_date),
+    mh_ref    = COALESCE(t.mh_ref,    EXCLUDED.mh_ref),
+    note      = COALESCE(t.note,      EXCLUDED.note);

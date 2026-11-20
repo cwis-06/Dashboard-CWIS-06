@@ -4,7 +4,7 @@ title Pasang otomasi database CWIS-06
 rem Memasang (aman diulang):
 rem   otomasi_qgis_monitor.sql : view pipa, pemeriksaan data (QA), riwayat progres
 rem   sql\test_pit.sql         : tabel test pit + 215 titik (isian yang sudah ada tidak ditimpa)
-rem   sql\bore_log.sql         : tabel bore log / soil boring + 19 titik
+rem   sql\bore_log.sql         : tabel bore log / soil boring + 22 titik
 rem Fungsi lain di database sudah disesuaikan langsung dan TIDAK disentuh.
 rem Struktur lengkap yang berlaku ada di sql\skema_db_aktual.sql.
 cd /d "%~dp0"

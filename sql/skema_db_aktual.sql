@@ -463,11 +463,15 @@ CREATE FUNCTION sewer.trg_bh() RETURNS trigger
     LANGUAGE plpgsql
     AS $_$
 BEGIN
-    IF NEW.bh_no IS NULL THEN
-        NEW.bh_no := NULLIF(regexp_replace(COALESCE(NEW.bh_id, ''), '\D', '', 'g'), '')::integer;
+    IF NEW.bh_no IS NULL AND NEW.bh_id ~* '^BH ?\d+$' THEN
+        NEW.bh_no := regexp_replace(NEW.bh_id, '\D', '', 'g')::integer;
     END IF;
-    IF NEW.bh_no IS NULL THEN RAISE EXCEPTION 'Nomor bore log (bh_no) wajib diisi'; END IF;
-    NEW.bh_id  := 'BH ' || CASE WHEN NEW.bh_no < 10 THEN '0' ELSE '' END || NEW.bh_no;
+    IF NEW.bh_no IS NOT NULL THEN
+        NEW.bh_id := 'BH ' || CASE WHEN NEW.bh_no < 10 THEN '0' ELSE '' END || NEW.bh_no;
+    ELSIF NEW.bh_id IS NULL AND NEW.mh_ref IS NOT NULL THEN
+        NEW.bh_id := 'BH di MH ' || substring(NEW.mh_ref from '(\d{4}[A-Z]?)$');   -- nomor BH belum diketahui
+    END IF;
+    IF NEW.bh_id IS NULL THEN RAISE EXCEPTION 'Isi bh_no, atau mh_ref bila nomor BH belum diketahui'; END IF;
     NEW.status := COALESCE(NULLIF(trim(NEW.status), ''), 'Direncanakan');
     IF NEW.geom IS NULL AND NEW.mh_ref IS NOT NULL THEN
         SELECT m.geom INTO NEW.geom FROM sewer.manhole m
@@ -899,7 +903,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE sewer.bore_log (
     bh_id text NOT NULL,
-    bh_no integer NOT NULL,
+    bh_no integer,
     zone smallint,
     mh_ref text,
     surface text,
