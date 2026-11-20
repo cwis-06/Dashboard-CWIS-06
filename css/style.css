@@ -61,6 +61,7 @@ table.t th:first-child,table.t td:first-child{text-align:left}table.t th{color:v
 
 #map{background:var(--bg);min-height:340px;position:relative}
 #lg{position:absolute;left:14px;bottom:26px;z-index:800;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;max-width:262px;font-size:13px}
+#lg{max-height:calc(100% - 150px);overflow:auto}#lg .lgh{font-weight:600;font-size:12px;margin:8px 0 3px;opacity:.8}#lg .lgh:first-of-type{margin-top:2px}#lg .lgs{margin:0 0 6px;line-height:1.4}#lg small{opacity:.65}
 #lg .btn{display:flex;align-items:center;width:100%;margin-bottom:4px;text-align:left}#lg .btn.x{opacity:.45;text-decoration:line-through}
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink)}.leaflet-popup-content-wrapper{border-radius:10px;max-height:min(70vh,70dvh);overflow:hidden;display:flex}.leaflet-popup-content{margin:13px 19px;max-height:min(70vh,70dvh);overflow:auto}
 .pp{font-size:calc(14px*var(--ps,1));min-width:15.5em;max-height:55vh;overflow:auto;padding-right:4px}.pp h3{font:700 1.5em/1.2 'Bricolage Grotesque',sans-serif;letter-spacing:-.01em;margin:0}

@@ -29,7 +29,7 @@ const HM=L.CircleMarker.extend({_clickTolerance(){return this.options.hit||0}});
 const cm=(ll,o)=>new HM(ll,o);
 const HIS=new Set(['sr','hic','hip']);
 function restack(){[SL.persil,SL.collect,gP,SL.hip,SL.hic,SL.sr,SL.ic,SL.bh,SL.tp,gM].forEach(g=>{if(map.hasLayer(g))g.bringToFront()})}
-const SL={zona:L.featureGroup(),rw:L.featureGroup(),collect:L.featureGroup(),persil:L.featureGroup(),ic:L.featureGroup(),hip:L.featureGroup(),hic:L.featureGroup(),sr:L.featureGroup(),tp:L.featureGroup(),bh:L.featureGroup(),foto:L.featureGroup()},sById=new Map(),vis={pipe:true,mh:true,collect:false,persil:false,ic:false,hip:false,hic:false,sr:false,zona:true,rw:false,tp:true,bh:true,foto:true},have={};
+const SL={zona:L.featureGroup(),rw:L.featureGroup(),collect:L.featureGroup(),persil:L.featureGroup(),ic:L.featureGroup(),hip:L.featureGroup(),hic:L.featureGroup(),sr:L.featureGroup(),tp:L.featureGroup(),bh:L.featureGroup(),foto:L.featureGroup()},sById=new Map(),vis={pipe:true,mh:true,collect:false,persil:false,ic:false,hip:false,hic:false,sr:false,zona:true,rw:false,tp:false,bh:false,foto:true},have={};
 L.DomEvent.disableClickPropagation($('lg'));
 const mmeth=id=>{const s=mm.get(id);return !s?null:s.size>1?'Campuran':[...s][0]};
 const colP=p=>cMode==='progress'?prog(p.progress_pct):p.method==='Jacking'?JK:OT;
@@ -55,8 +55,29 @@ const okP=p=>okZ(p)&&okS(p)&&(!f.cls||p.pipe_type===f.cls)&&!off.has(p.method);
 const okM=p=>{const s=mm.get(p.manhole_id);return okZ(p)&&okS(p)&&(!f.cls||p.mh_type===f.cls)&&(!s||[...s].some(m=>!off.has(m)))};
 const bar=p=>'<div class="bar"><i style="width:'+Math.min(100,p)+'%"></i></div>';
 function agg(list,kf){const g={};list.forEach(x=>{const p=x.properties,k=kf(p),l=p.length_m||0;(g[k]=g[k]||{n:0,l:0,d:0});g[k].n++;g[k].l+=l;g[k].d+=l*pc(p)/100});return g}
-function legend(){$('lg').innerHTML=(cMode==='method'?['Jacking','Open Trench'].map(k=>'<button class="btn'+(off.has(k)?' x':'')+'" data-m="'+k+'" title="Klik untuk menyembunyikan atau menampilkan"><i class="sw" style="background:'+(k==='Jacking'?JK:OT)+'"></i>'+k+'</button>').join('')+'<div><i class="sw" style="background:'+MX+'"></i>Manhole di sambungan kedua metode</div>':
- [['Belum mulai',G0],['1–49%','#f0a020'],['50–99%','#2f7fe0'],['Selesai','#2eaa5c']].map(a=>'<div><i class="sw" style="background:'+a[1]+'"></i>'+a[0]+'</div>').join(''))+(have.sr||have.hic||have.hip?'<div style="margin-top:4px">House inlet</div>'+['sr','hic','hip'].map(k=>'<div><i class="sw" style="'+(k==='hip'?'background:transparent;border:2px solid '+HIC.hip:'background:'+HIC[k])+'"></i>'+HIL[k]+'</div>').join(''):'')+(have.tp?'<div style="margin-top:4px">Test pit</div>'+[['Direncanakan',TPC.rencana],['Digali',TPC.digali],['Selesai',TPC.selesai],['Ditunda',TPC.tunda]].map(a=>'<div><i class="sw" style="background:'+a[1]+';border:2px solid #5c3b1e"></i>'+a[0]+'</div>').join(''):'')+(have.bh?'<div style="margin-top:4px">Bore log</div>'+[['Direncanakan',BHC.rencana],['Selesai',BHC.selesai]].map(a=>'<div><i class="sw" style="background:'+a[1]+';border:2px solid #fff;box-shadow:0 0 0 1px #888"></i>'+a[0]+'</div>').join(''):'')+'<p class="sm">Tebal garis menunjukkan kelas pipa. Lingkaran putus-putus adalah manhole paket sebelah.</p>'}
+/* Legenda hanya menampilkan lapisan yang sedang tampil di peta */
+const lgH=t=>'<div class="lgh">'+t+'</div>',sw=(bg,ex)=>'<i class="sw" style="background:'+bg+(ex?';'+ex:'')+'"></i>';
+const cntBy=(t,fn)=>{const c={};IDX.forEach(i=>{if(i.t===t){const k=fn(i.f.properties);c[k]=(c[k]||0)+1}});return c};
+function legend(){const on=k=>vis[k]&&(k==='pipe'||k==='mh'||have[k]),h=[];
+ const shown=LY.filter(([k])=>on(k)).map(([,n])=>n);
+ h.push('<p class="sm lgs"><b>Ditampilkan:</b> '+(shown.length?shown.join(', '):'tidak ada lapisan')+'</p>');
+ if(survSave)h.push('<p class="sm lgs">Mode penyelidikan tanah: manhole, house inlet, dan layer titik lain disembunyikan agar test pit dan bore log terbaca. Matikan Test pit dan Bore log untuk mengembalikan.</p>');
+ if(on('pipe')||on('mh')){
+  if(cMode==='method'){h.push(lgH('Metode pekerjaan'));if(on('pipe'))h.push(['Jacking','Open Trench'].map(k=>'<button class="btn'+(off.has(k)?' x':'')+'" data-m="'+k+'" title="Klik untuk menyembunyikan atau menampilkan">'+sw(k==='Jacking'?JK:OT)+k+'</button>').join(''));if(on('mh'))h.push('<div>'+sw(MX)+'Manhole di sambungan kedua metode</div>')}
+  else{h.push(lgH('Progres pekerjaan'));h.push([['Belum mulai',G0],['1–49%','#f0a020'],['50–99%','#2f7fe0'],['Selesai','#2eaa5c']].map(a=>'<div>'+sw(a[1])+a[0]+'</div>').join(''))}}
+ if(on('sr')||on('hic')||on('hip')){h.push(lgH('House inlet'));h.push(['sr','hic','hip'].filter(on).map(k=>'<div>'+sw(k==='hip'?'transparent':HIC[k],k==='hip'?'border:2px solid '+HIC.hip:'')+HIL[k]+'</div>').join(''))}
+ if(on('collect')||on('persil')||on('ic')){h.push(lgH('Pelengkap jaringan'));if(on('collect'))h.push('<div>'+sw('#c2255c','height:4px;border-radius:2px')+'Pipa collecting</div>');if(on('persil'))h.push('<div>'+sw('#868e96','height:3px;border-radius:2px')+'Pipa persil</div>');if(on('ic'))h.push('<div>'+sw('#d6336c')+'Inspection chamber</div>')}
+ if(on('tp')){const c=cntBy('tp',tpSt);h.push(lgH('Test pit'));h.push([['rencana','Direncanakan'],['digali','Digali'],['selesai','Selesai'],['tunda','Ditunda']].filter(([k])=>c[k]||k!=='tunda'&&k!=='digali').map(([k,n])=>'<div>'+sw(TPC[k],'border:2px solid #5c3b1e')+n+' <small>'+fmt(c[k]||0,0)+'</small></div>').join(''))}
+ if(on('bh')){const c=cntBy('bh',p=>bhCol(p)===BHC.selesai?'selesai':'rencana');h.push(lgH('Bore log (soil boring)'));h.push([['rencana','Direncanakan'],['selesai','Selesai']].map(([k,n])=>'<div>'+sw(BHC[k],'border:2px solid #fff;box-shadow:0 0 0 1px #888')+n+' <small>'+fmt(c[k]||0,0)+'</small></div>').join(''))}
+ if(on('zona')||on('rw')){h.push(lgH('Batas wilayah'));if(on('zona'))h.push('<div>'+sw('transparent','border:2px dashed #7048b8')+'Zona pekerjaan</div>');if(on('rw'))h.push('<div>'+sw('transparent','border:1.5px dashed #868e96')+'Batas RW</div>')}
+ const nt=[];if(on('pipe'))nt.push('Tebal garis menunjukkan kelas pipa.');if(on('mh'))nt.push('Lingkaran putus-putus adalah manhole paket sebelah.');
+ if(nt.length)h.push('<p class="sm">'+nt.join(' ')+'</p>');
+ $('lg').innerHTML=h.join('')}
+/* Test pit / bore log dibuka: layer titik lain dimatikan sementara, jaringan pipa tetap */
+const SURV=['tp','bh'],SURV_OFF=['mh','collect','persil','ic','sr','hic','hip','foto','rw'];let survSave=null;
+function survMode(){const any=SURV.some(k=>vis[k]);
+ if(any&&!survSave){survSave={};SURV_OFF.forEach(k=>{survSave[k]=vis[k];vis[k]=false})}
+ else if(!any&&survSave){SURV_OFF.forEach(k=>{vis[k]=survSave[k]});survSave=null}}
 function render(fit){
  gP.clearLayers();gM.clearLayers();byId.clear();
  const P=PIPES.features.filter(x=>okP(x.properties)),M=MH.features.filter(x=>okM(x.properties)),W={Primary:5,Secondary:3.5,Tertiary:2.5};
@@ -141,7 +162,7 @@ function hiTable(){const z={};let n={sr:0,hic:0,hip:0};
  $('kHi').textContent=fmt(n.sr+n.hic+n.hip,0)}
 function syncStatic(){let ch=false;Object.keys(SL).forEach(k=>{const on=vis[k]&&have[k]&&(!HIS.has(k)||map.getZoom()>=HI_MINZ);if(on&&!map.hasLayer(SL[k])){SL[k].addTo(map);ch=true}else if(!on&&map.hasLayer(SL[k])){map.removeLayer(SL[k]);ch=true}});document.body.classList.toggle('zrw',map.getZoom()>=15);document.body.classList.toggle('hifar',map.getZoom()<HI_MINZ);if(ch)restack()}
 map.on('zoomend',syncStatic);
-$('ly').onchange=e=>{const k=e.target.dataset.l;vis[k]=e.target.checked;syncStatic();if(k==='pipe'||k==='mh')render(false)};
+$('ly').onchange=e=>{const k=e.target.dataset.l;vis[k]=e.target.checked;const was=!!survSave;if(SURV.includes(k))survMode();else if(survSave&&SURV_OFF.includes(k))survSave[k]=vis[k];if(was!==!!survSave)lyDraw();syncStatic();if(k==='pipe'||k==='mh'||was!==!!survSave)render(false);legend()};
 let tt;const toast=m=>{const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>{t.style.display='none'},3500)};
 const GPS=L.Control.extend({options:{position:'topright'},onAdd(){const b=L.DomUtil.create('button','gps');b.id='gps';b.title='Lokasi saya (GPS)';b.setAttribute('aria-label','Lokasi saya');b.setAttribute('aria-pressed','false');b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';L.DomEvent.disableClickPropagation(b);b.onclick=gpsToggle;return b}});
 map.addControl(new GPS());
