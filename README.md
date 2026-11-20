@@ -401,6 +401,7 @@ Dashboard-CWIS-06/
   otomasi_qgis_monitor.sql  view pipa, pemeriksaan data, riwayat progres
   sql/skema_db_aktual.sql struktur database yang berlaku + isi ref_stage (ditulis skrip)
   sql/isi_plan_date_msp.sql  tanggal rencana dari MSP dan urutan jacking Zona 2 (dijalankan manual)
+  sql/test_pit.sql        tabel test pit + 150 titik (dipasang setup_otomasi.bat)
   sql/diagnosa.sql        query baca-saja untuk cek_database.bat
   sql/arsip/              skema awal, migrasi, dan otomasi lama; hanya riwayat, jangan dijalankan
   _koneksi.bat            pengaturan koneksi bersama (dipanggil skrip lain, tidak dijalankan sendiri)
@@ -414,6 +415,6 @@ Dashboard-CWIS-06/
 ## Data
 
 Wajib ada: `v_lateral_pipe.geojson` dan `v_manhole.geojson`.
-Opsional (layer muncul otomatis bila filenya ada): `house_inlet`, `inspection_chamber`, `collecting_pipe`, `persil_pipe`, `zona`, `batas_rw`. Semuanya `.geojson` dengan sistem koordinat EPSG:4326.
+Opsional (layer muncul otomatis bila filenya ada): `house_inlet`, `inspection_chamber`, `collecting_pipe`, `persil_pipe`, `zona`, `batas_rw`, `test_pit`. Semuanya `.geojson` dengan sistem koordinat EPSG:4326.
 
 Cara manual tanpa skrip: ekspor layer dari QGIS ke GeoJSON (EPSG:4326, nama file sama persis), lalu di GitHub buka folder `data` > Add file > Upload files > Commit changes.

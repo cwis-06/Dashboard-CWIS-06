@@ -94,7 +94,7 @@ call "%QGIS_DIR%\bin\o4w_env.bat" >nul 2>&1
 if not exist data mkdir data
 set "RC=0"
 rem Format  tabel:nama_file:wajib   (wajib=1 menghentikan proses bila gagal)
-for %%L in (v_lateral_pipe:v_lateral_pipe:1 v_manhole:v_manhole:1 house_inlet:house_inlet:0 inspection_chamber:inspection_chamber:0 collecting_pipe:collecting_pipe:0 persil_pipe:persil_pipe:0 zone_area:zona:0 rw_boundary:batas_rw:0) do (
+for %%L in (v_lateral_pipe:v_lateral_pipe:1 v_manhole:v_manhole:1 house_inlet:house_inlet:0 inspection_chamber:inspection_chamber:0 collecting_pipe:collecting_pipe:0 persil_pipe:persil_pipe:0 zone_area:zona:0 rw_boundary:batas_rw:0 test_pit:test_pit:0) do (
   for /f "tokens=1-3 delims=:" %%a in ("%%L") do call :ekspor %%a %%b %%c || set "RC=1"
 )
 echo   progress_snapshot

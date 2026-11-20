@@ -6,6 +6,7 @@ File di folder ini **tidak** dijalankan otomatis, kecuali `skema_db_aktual.sql` 
 |---|---|
 | `skema_db_aktual.sql` | **Sumber kebenaran.** Ditulis ulang oleh `update_dashboard.bat` setiap jalan (`pg_dump` schema `sewer` dan `staging` tanpa data, ditambah isi `ref_stage` dan `ref_work_stage`). Bila database perlu dibangun ulang, mulai dari file ini. Perubahan yang dibuat langsung di pgAdmin atau DB Manager QGIS ikut tercatat di sini, dan riwayatnya terlihat di git. |
 | `isi_plan_date_msp.sql` | Mengisi `plan_date` pipa dan manhole dari kertas kerja MSP, membuat `urutan_zona2` (2 alternatif urutan jacking Zona 2) dan `pengaturan`. Dijalankan manual bila jadwal MSP berubah. Pilih alternatif: `SELECT sewer.terapkan_urutan_zona2(1);` atau `(2)`. |
+| `test_pit.sql` | Tabel `sewer.test_pit` (trigger mengisi `tp_id`, zona bila kosong, nama jalan terdekat, koordinat) dan 150 titik TP 66 sampai TP 215. Dijalankan `setup_otomasi.bat`; titik yang sudah ada tidak ditimpa. |
 | `diagnosa.sql` | Hanya membaca: `ref_stage`, definisi view, trigger, fungsi, versi. Dipakai `cek_database.bat`. |
 
 ## `arsip/`

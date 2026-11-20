@@ -726,6 +726,42 @@ END $$;
 
 
 --
+-- Name: trg_tp(); Type: FUNCTION; Schema: sewer; Owner: -
+--
+
+CREATE FUNCTION sewer.trg_tp() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.tp_no IS NULL THEN
+        NEW.tp_no := NULLIF(regexp_replace(COALESCE(NEW.tp_id, ''), '\D', '', 'g'), '')::integer;
+    END IF;
+    IF NEW.tp_no IS NULL THEN
+        RAISE EXCEPTION 'Nomor test pit (tp_no) wajib diisi';
+    END IF;
+    NEW.tp_id  := 'TP ' || NEW.tp_no;
+    NEW.geom   := ST_Force2D(NEW.geom);
+    NEW.status := COALESCE(NULLIF(trim(NEW.status), ''), 'Direncanakan');
+    IF NEW.zone IS NULL THEN
+        NEW.zone := sewer.zone_of(NEW.geom);
+    END IF;
+    IF NEW.location_name IS NULL THEN
+        SELECT p.location_name INTO NEW.location_name
+          FROM sewer.lateral_pipe p
+         WHERE ST_DWithin(p.geom, NEW.geom, 30)
+         ORDER BY p.geom <-> NEW.geom LIMIT 1;
+    END IF;
+    NEW.x   := round(ST_X(NEW.geom)::numeric, 3);
+    NEW.y   := round(ST_Y(NEW.geom)::numeric, 3);
+    NEW.lon := round(ST_X(ST_Transform(NEW.geom, 4326))::numeric, 7);
+    NEW.lat := round(ST_Y(ST_Transform(NEW.geom, 4326))::numeric, 7);
+    IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
+    NEW.updated_at := now();
+    RETURN NEW;
+END $$;
+
+
+--
 -- Name: zone_of(public.geometry); Type: FUNCTION; Schema: sewer; Owner: -
 --
 
@@ -1208,6 +1244,38 @@ CREATE TABLE sewer.rw_boundary (
     clat numeric(10,7),
     geom public.geometry(MultiPolygon,32749) NOT NULL
 );
+
+
+--
+-- Name: test_pit; Type: TABLE; Schema: sewer; Owner: -
+--
+
+CREATE TABLE sewer.test_pit (
+    tp_id text NOT NULL,
+    tp_no integer NOT NULL,
+    zone smallint,
+    location_name text,
+    status text DEFAULT 'Direncanakan'::text NOT NULL,
+    depth_m numeric(6,2),
+    ground_elev numeric(8,3),
+    utility_found text,
+    plan_date date,
+    actual_date date,
+    note text,
+    x numeric(12,3),
+    y numeric(12,3),
+    lon numeric(10,7),
+    lat numeric(10,7),
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    geom public.geometry(Point,32749) NOT NULL
+);
+
+
+--
+-- Name: TABLE test_pit; Type: COMMENT; Schema: sewer; Owner: -
+--
+
+COMMENT ON TABLE sewer.test_pit IS 'Titik test pit. Status: Direncanakan, Digali, Selesai (warna di dashboard: abu-abu, oranye, hijau).';
 
 
 --
@@ -1896,6 +1964,22 @@ ALTER TABLE ONLY sewer.rw_boundary
 
 
 --
+-- Name: test_pit test_pit_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
+--
+
+ALTER TABLE ONLY sewer.test_pit
+    ADD CONSTRAINT test_pit_pkey PRIMARY KEY (tp_id);
+
+
+--
+-- Name: test_pit test_pit_tp_no_key; Type: CONSTRAINT; Schema: sewer; Owner: -
+--
+
+ALTER TABLE ONLY sewer.test_pit
+    ADD CONSTRAINT test_pit_tp_no_key UNIQUE (tp_no);
+
+
+--
 -- Name: urutan_zona2 urutan_zona2_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
 --
 
@@ -2073,6 +2157,13 @@ CREATE INDEX rw_boundary_gix ON sewer.rw_boundary USING gist (geom);
 
 
 --
+-- Name: test_pit_gix; Type: INDEX; Schema: sewer; Owner: -
+--
+
+CREATE INDEX test_pit_gix ON sewer.test_pit USING gist (geom);
+
+
+--
 -- Name: zone_area_gix; Type: INDEX; Schema: sewer; Owner: -
 --
 
@@ -2217,6 +2308,13 @@ CREATE TRIGGER trg_pp_derive BEFORE INSERT OR UPDATE ON sewer.persil_pipe FOR EA
 --
 
 CREATE TRIGGER trg_progress_apply BEFORE INSERT ON sewer.progress_log FOR EACH ROW EXECUTE FUNCTION sewer.apply_progress();
+
+
+--
+-- Name: test_pit trg_tp_derive; Type: TRIGGER; Schema: sewer; Owner: -
+--
+
+CREATE TRIGGER trg_tp_derive BEFORE INSERT OR UPDATE ON sewer.test_pit FOR EACH ROW EXECUTE FUNCTION sewer.trg_tp();
 
 
 --
