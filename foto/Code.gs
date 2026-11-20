@@ -7,7 +7,7 @@
  *  - doGet : mengirim daftar kegiatan (JSON) yang dibaca dashboard untuk ditampilkan di peta.
  *
  * Struktur folder di Drive (dibuat otomatis di dalam FOLDER_ID):
- *   Rekap Foto / 2026-11 November / Pekan 2026-11-14 s.d. 2026-11-20 / 2026-11-17 Selasa / foto.jpg
+ *   Rekap Foto / 2026-11 November / Pekan 2026-11-14 s.d. 2026-11-20 / 2026-11-17 Selasa / 20261117_122501_MH_06_0606_Pekerjaan_Grouting_Fiqri_Rahman.jpg
  *
  * Cara pasang: lihat README.md bagian B8.
  */
@@ -41,7 +41,7 @@ function setup() {
   sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);   // menulis ulang judul kolom (data di bawahnya tidak disentuh)
   sh.getRange('L:N').setNumberFormat('@');            // tanggal, pekan, bulan disimpan sebagai teks
   sh.setFrozenRows(1);
-  buatRekap_(sh.getParent());
+  perbaruiRekap();
 }
 
 /** Opsional, jalankan SEKALI: merapikan foto lama (yang diunggah sebelum fitur folder otomatis) ke struktur folder baru. */
@@ -60,7 +60,25 @@ function susunUlang() {
     } catch (err) { Logger.log('Baris ' + (i + 1) + ' dilewati: ' + err); }
   }
   CacheService.getScriptCache().remove('daftar');
+  perbaruiRekap();
   Logger.log(n + ' foto disusun ke folder rekap.');
+}
+
+/** Opsional, jalankan SEKALI: mengganti nama file foto lama supaya memuat keterangan kegiatan, sesuai data di Sheet. */
+function ubahNamaFileLama() {
+  const sh = sheet_(), data = sh.getDataRange().getValues();
+  let n = 0;
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i], id = r[8];
+    if (!id) continue;
+    try {
+      const waktu = r[0] instanceof Date ? r[0] : new Date();
+      const nama = namaFile_(tglSel_(r[11], waktu), Utilities.formatDate(waktu, ZONA_WAKTU, 'HHmmss'), r[2], r[3], r[1]);
+      const file = DriveApp.getFileById(id);
+      if (file.getName() !== nama) { file.setName(nama); n++; }
+    } catch (err) { Logger.log('Baris ' + (i + 1) + ' dilewati: ' + err); }
+  }
+  Logger.log(n + ' file diganti namanya.');
 }
 
 // ---------- Pembantu ----------
@@ -91,6 +109,16 @@ const tglWib_  = d => Utilities.formatDate(d, ZONA_WAKTU, 'yyyy-MM-dd');
 const tglUtc_  = d => Utilities.formatDate(d, 'GMT', 'yyyy-MM-dd');
 const geser_   = (s, n) => { const p = s.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)); };
 const linkFoto_ = id => 'https://drive.google.com/file/d/' + id + '/view';
+
+// Membersihkan teks untuk nama file: hanya huruf, angka, garis bawah, dan strip.
+const bersih_ = (s, maks) => String(s || '').replace(/[^A-Za-z0-9_-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, maks);
+
+// Nama file: tanggal_jam_ID_keterangan_petugas.jpg  (bagian yang kosong dilewati)
+// Contoh: 20261117_122501_MH_06_0606_Pekerjaan_Grouting_Fiqri_Rahman.jpg
+function namaFile_(tanggal, jam, kode, ket, nama) {
+  return [tanggal.replace(/-/g, ''), jam, bersih_(kode, 40) || 'tanpa-kode', bersih_(ket, 60), bersih_(nama, 40)]
+    .filter(Boolean).join('_').slice(0, 200) + '.jpg';
+}
 
 // Tanggal (teks yyyy-MM-dd) dari sel Sheet; bila kosong atau tidak valid, dipakai tanggal dari waktu unggah.
 function tglSel_(v, waktu) {
@@ -128,20 +156,41 @@ function folderTujuan_(tanggal) {
   return folder_(pekan, i.tanggal + ' ' + i.hari);
 }
 
-// Tab "Rekap": jumlah foto per hari, per pekan, dan per bulan (dihitung otomatis dari tab data).
-function buatRekap_(ss) {
+// Tab "Rekap": jumlah foto per hari, per pekan (Sabtu sampai Jumat), dan per bulan.
+// Berupa nilai biasa (bukan rumus), jadi tidak bergantung pada bahasa atau pemisah rumus di Google Sheet.
+// Diperbarui otomatis setiap ada foto baru, dan bisa dijalankan manual lewat fungsi perbaruiRekap.
+function perbaruiRekap() {
+  const ss = sheet_().getParent();
+  const data = sheet_().getDataRange().getValues();
+  data.shift();                                       // buang judul kolom
+  const hari = {}, pekan = {}, bulan = {};
+  let total = 0;
+  data.forEach(r => {
+    if (!r[8]) return;                                // baris tanpa file_id dilewati
+    const tg = tglSel_(r[11], r[0]), inf = info_(tg);
+    hari[tg] = (hari[tg] || 0) + 1;
+    pekan[inf.pekan] = (pekan[inf.pekan] || 0) + 1;
+    bulan[inf.bulan] = (bulan[inf.bulan] || 0) + 1;
+    total++;
+  });
+  const tabel = o => Object.keys(o).sort().reverse().map(k => [k, o[k]]);
+
   const sh = ss.getSheetByName(NAMA_SHEET_REKAP) || ss.insertSheet(NAMA_SHEET_REKAP);
   sh.clear();
-  const nm = NAMA_SHEET.replace(/'/g, "''");
-  const f = (kol, judul) => "=QUERY('" + nm + "'!A2:O,\"select " + kol + ", count(I) where I is not null and " + kol +
-    " is not null group by " + kol + " order by " + kol + " desc label " + kol + " '" + judul + "', count(I) 'Jumlah foto'\",0)";
-  sh.getRange('A1').setValue('Per hari');
-  sh.getRange('D1').setValue('Per pekan (Sabtu sampai Jumat)');
-  sh.getRange('G1').setValue('Per bulan');
-  sh.getRange('A1:G1').setFontWeight('bold');
-  sh.getRange('A2').setFormula(f('L', 'Tanggal'));
-  sh.getRange('D2').setFormula(f('M', 'Pekan'));
-  sh.getRange('G2').setFormula(f('N', 'Bulan'));
+  sh.getRange('A:A').setNumberFormat('@');            // kunci tanggal, pekan, bulan tetap berupa teks
+  sh.getRange('D:D').setNumberFormat('@');
+  sh.getRange('G:G').setNumberFormat('@');
+  const tulis = (kolom, judul, kunci, tb) => {
+    sh.getRange(1, kolom).setValue(judul);
+    sh.getRange(2, kolom, 1, 2).setValues([[kunci, 'Jumlah foto']]);
+    if (tb.length) sh.getRange(3, kolom, tb.length, 2).setValues(tb);
+  };
+  tulis(1, 'Per hari', 'Tanggal', tabel(hari));
+  tulis(4, 'Per pekan (Sabtu sampai Jumat)', 'Pekan', tabel(pekan));
+  tulis(7, 'Per bulan', 'Bulan', tabel(bulan));
+  sh.getRange('J1').setValue('Total foto');
+  sh.getRange('J2').setValue(total);
+  sh.getRange('A1:J2').setFontWeight('bold');
   sh.setColumnWidth(4, 230);
 }
 
@@ -177,8 +226,7 @@ function doPost(e) {
     const inf = info_(tanggal);
 
     const jam = Utilities.formatDate(sekarang, ZONA_WAKTU, 'HHmmss');
-    const bersih = s => String(s || '').replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 40);
-    const namaFile = tanggal.replace(/-/g, '') + '_' + jam + '_' + (bersih(d.kode) || 'tanpa-kode') + '_' + bersih(d.nama) + '.jpg';
+    const namaFile = namaFile_(tanggal, jam, d.kode, d.keterangan, d.nama);
 
     const file = folderTujuan_(tanggal).createFile(Utilities.newBlob(bytes, 'image/jpeg', namaFile));
 
@@ -217,6 +265,7 @@ function doPost(e) {
     }
 
     CacheService.getScriptCache().remove('daftar');
+    try { perbaruiRekap(); } catch (_) {}                // tab Rekap ikut diperbarui; kegagalan tidak membatalkan unggahan
     return json_({ ok: true, id: file.getId(), bagikan: bagikan, folder: inf.bulan + ' / Pekan ' + inf.pekan + ' / ' + inf.tanggal });
   } catch (err) {
     return json_({ ok: false, pesan: String(err) });

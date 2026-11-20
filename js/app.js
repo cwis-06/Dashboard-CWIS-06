@@ -12,7 +12,7 @@ const isRef=p=>REF.has(p.manhole_id)||p.is_reference===true||p.is_reference==='t
 let PIPES,MH,IDX=[],hits=[],sel=-1,hl=null,cMode='method';
 const mm=new Map(),byId=new Map(),f={zone:'',cls:'',st:''},off=new Set();
 /* ===== PENGATURAN ===== */
-const FOTO_URL='https://script.google.com/macros/s/AKfycbxJY-E6pWKLg0ThWJmMugaAqEmGtb-idTTxeHOsSXAG7CGeUItM8ZOneTpa-__4xlE/exec';   // alamat web app Google Apps Script (berakhiran /exec) untuk foto dokumentasi. Kosongkan untuk menonaktifkan fitur foto.
+const FOTO_URL='https://script.google.com/macros/s/AKfycbztnQkhdsc40_oCW97_k-kqZKGIxi2NIjuI2440Rrj5nfsfLubTUuz-eOea_g5wwYPO/exec';   // alamat web app Google Apps Script (berakhiran /exec) untuk foto dokumentasi. Kosongkan untuk menonaktifkan fitur foto.
 const FOTO_AUTO=false;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil). Dimatikan di HP terlepas dari ini (lihat FOTO_AUTO_MOBILE).
 const FOTO_AUTO_MOBILE=false;   // sama, tapi khusus layar sempit (<=820px). Biarkan false: di HP jendela besar ini mengganggu saat baru buka halaman.
 const SHOW_HI_STATS=false;   // false: sembunyikan jumlah SR dan HI (baris "House inlet" di ringkasan progres, tabel "House inlet per zona", dan angka di daftar layer). true: tampilkan lagi.
