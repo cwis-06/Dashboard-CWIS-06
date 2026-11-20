@@ -397,6 +397,38 @@ $_$;
 
 
 --
+-- Name: terapkan_urutan_zona2(smallint); Type: FUNCTION; Schema: sewer; Owner: -
+--
+
+CREATE FUNCTION sewer.terapkan_urutan_zona2(p_alt smallint) RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE n_pipa int; n_mh int;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM sewer.urutan_zona2 WHERE alternatif = p_alt) THEN
+        RAISE EXCEPTION 'Alternatif % tidak ada. Pilihan: %', p_alt,
+            (SELECT string_agg(DISTINCT alternatif::text, ', ') FROM sewer.urutan_zona2);
+    END IF;
+    -- kosongkan dulu semua aset yang ada di alternatif mana pun, lalu isi dari alternatif terpilih
+    UPDATE sewer.lateral_pipe SET plan_date = NULL
+     WHERE pipe_id IN (SELECT asset_id FROM sewer.urutan_zona2 WHERE jenis = 'jacking');
+    UPDATE sewer.manhole SET plan_date = NULL
+     WHERE manhole_id IN (SELECT asset_id FROM sewer.urutan_zona2 WHERE jenis = 'shaft');
+    UPDATE sewer.lateral_pipe p SET plan_date = u.plan_start
+      FROM sewer.urutan_zona2 u
+     WHERE u.alternatif = p_alt AND u.jenis = 'jacking' AND p.pipe_id = u.asset_id;
+    GET DIAGNOSTICS n_pipa = ROW_COUNT;
+    UPDATE sewer.manhole m SET plan_date = u.plan_start
+      FROM sewer.urutan_zona2 u
+     WHERE u.alternatif = p_alt AND u.jenis = 'shaft' AND m.manhole_id = u.asset_id;
+    GET DIAGNOSTICS n_mh = ROW_COUNT;
+    INSERT INTO sewer.pengaturan VALUES ('alternatif_zona2', p_alt::text)
+        ON CONFLICT (kunci) DO UPDATE SET nilai = EXCLUDED.nilai;
+    RETURN format('Alternatif %s diterapkan: %s ruas jacking, %s shaft', p_alt, n_pipa, n_mh);
+END $$;
+
+
+--
 -- Name: touch_manhole_work(); Type: FUNCTION; Schema: sewer; Owner: -
 --
 
@@ -1015,6 +1047,16 @@ COMMENT ON COLUMN sewer.manhole_work.progress_pct IS 'Progres manual 0-100 (%). 
 
 
 --
+-- Name: pengaturan; Type: TABLE; Schema: sewer; Owner: -
+--
+
+CREATE TABLE sewer.pengaturan (
+    kunci text NOT NULL,
+    nilai text
+);
+
+
+--
 -- Name: seq_pp; Type: SEQUENCE; Schema: sewer; Owner: -
 --
 
@@ -1166,6 +1208,30 @@ CREATE TABLE sewer.rw_boundary (
     clat numeric(10,7),
     geom public.geometry(MultiPolygon,32749) NOT NULL
 );
+
+
+--
+-- Name: urutan_zona2; Type: TABLE; Schema: sewer; Owner: -
+--
+
+CREATE TABLE sewer.urutan_zona2 (
+    alternatif smallint NOT NULL,
+    jenis text NOT NULL,
+    urutan smallint NOT NULL,
+    kode text NOT NULL,
+    asset_id text NOT NULL,
+    keterangan text,
+    plan_start date NOT NULL,
+    plan_finish date NOT NULL,
+    CONSTRAINT urutan_zona2_jenis_check CHECK ((jenis = ANY (ARRAY['shaft'::text, 'jacking'::text])))
+);
+
+
+--
+-- Name: TABLE urutan_zona2; Type: COMMENT; Schema: sewer; Owner: -
+--
+
+COMMENT ON TABLE sewer.urutan_zona2 IS 'Urutan shaft dan jacking Zona 2 dari gambar Alternatif 1 dan 2. Tanggal dihitung dengan pola MSP (21 hari per shaft, 21 hari per dorongan). Boleh diedit langsung; terapkan ke plan_date dengan SELECT sewer.terapkan_urutan_zona2(n).';
 
 
 --
@@ -1766,6 +1832,14 @@ ALTER TABLE ONLY sewer.manhole_work
 
 
 --
+-- Name: pengaturan pengaturan_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
+--
+
+ALTER TABLE ONLY sewer.pengaturan
+    ADD CONSTRAINT pengaturan_pkey PRIMARY KEY (kunci);
+
+
+--
 -- Name: persil_pipe persil_pipe_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
 --
 
@@ -1819,6 +1893,14 @@ ALTER TABLE ONLY sewer.ref_work_stage
 
 ALTER TABLE ONLY sewer.rw_boundary
     ADD CONSTRAINT rw_boundary_pkey PRIMARY KEY (rw_label);
+
+
+--
+-- Name: urutan_zona2 urutan_zona2_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
+--
+
+ALTER TABLE ONLY sewer.urutan_zona2
+    ADD CONSTRAINT urutan_zona2_pkey PRIMARY KEY (alternatif, jenis, urutan);
 
 
 --
