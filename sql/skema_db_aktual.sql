@@ -456,6 +456,40 @@ $$;
 
 
 --
+-- Name: trg_bh(); Type: FUNCTION; Schema: sewer; Owner: -
+--
+
+CREATE FUNCTION sewer.trg_bh() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    IF NEW.bh_no IS NULL THEN
+        NEW.bh_no := NULLIF(regexp_replace(COALESCE(NEW.bh_id, ''), '\D', '', 'g'), '')::integer;
+    END IF;
+    IF NEW.bh_no IS NULL THEN RAISE EXCEPTION 'Nomor bore log (bh_no) wajib diisi'; END IF;
+    NEW.bh_id  := 'BH ' || CASE WHEN NEW.bh_no < 10 THEN '0' ELSE '' END || NEW.bh_no;
+    NEW.status := COALESCE(NULLIF(trim(NEW.status), ''), 'Direncanakan');
+    IF NEW.geom IS NULL AND NEW.mh_ref IS NOT NULL THEN
+        SELECT m.geom INTO NEW.geom FROM sewer.manhole m
+         WHERE substring(m.manhole_id from '(\d{4}[A-Z]?)$') = substring(NEW.mh_ref from '(\d{4}[A-Z]?)$')
+         LIMIT 1;
+    END IF;
+    IF NEW.geom IS NULL THEN
+        RAISE EXCEPTION '% tanpa lokasi: isi titik di peta atau mh_ref yang ada di tabel manhole', NEW.bh_id;
+    END IF;
+    NEW.geom := ST_Force2D(NEW.geom);
+    IF NEW.zone IS NULL THEN NEW.zone := sewer.zone_of(NEW.geom); END IF;
+    NEW.x   := round(ST_X(NEW.geom)::numeric, 3);
+    NEW.y   := round(ST_Y(NEW.geom)::numeric, 3);
+    NEW.lon := round(ST_X(ST_Transform(NEW.geom, 4326))::numeric, 7);
+    NEW.lat := round(ST_Y(ST_Transform(NEW.geom, 4326))::numeric, 7);
+    IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
+    NEW.updated_at := now();
+    RETURN NEW;
+END $_$;
+
+
+--
 -- Name: trg_hi(); Type: FUNCTION; Schema: sewer; Owner: -
 --
 
@@ -731,34 +765,36 @@ END $$;
 
 CREATE FUNCTION sewer.trg_tp() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+    AS $_$
 BEGIN
     IF NEW.tp_no IS NULL THEN
         NEW.tp_no := NULLIF(regexp_replace(COALESCE(NEW.tp_id, ''), '\D', '', 'g'), '')::integer;
     END IF;
-    IF NEW.tp_no IS NULL THEN
-        RAISE EXCEPTION 'Nomor test pit (tp_no) wajib diisi';
-    END IF;
-    NEW.tp_id  := 'TP ' || NEW.tp_no;
-    NEW.geom   := ST_Force2D(NEW.geom);
+    IF NEW.tp_no IS NULL THEN RAISE EXCEPTION 'Nomor test pit (tp_no) wajib diisi'; END IF;
+    NEW.tp_id  := 'TP ' || CASE WHEN NEW.tp_no < 10 THEN '0' ELSE '' END || NEW.tp_no;
     NEW.status := COALESCE(NULLIF(trim(NEW.status), ''), 'Direncanakan');
-    IF NEW.zone IS NULL THEN
-        NEW.zone := sewer.zone_of(NEW.geom);
+    IF NEW.geom IS NULL AND NEW.mh_ref IS NOT NULL THEN
+        SELECT m.geom INTO NEW.geom FROM sewer.manhole m
+         WHERE substring(m.manhole_id from '(\d{4}[A-Z]?)$') = substring(NEW.mh_ref from '(\d{4}[A-Z]?)$')
+         LIMIT 1;
     END IF;
-    IF NEW.location_name IS NULL THEN
-        SELECT p.location_name INTO NEW.location_name
-          FROM sewer.lateral_pipe p
-         WHERE ST_DWithin(p.geom, NEW.geom, 30)
-         ORDER BY p.geom <-> NEW.geom LIMIT 1;
+    IF NEW.geom IS NULL THEN
+        RAISE EXCEPTION '% tanpa lokasi: isi titik di peta atau mh_ref yang ada di tabel manhole', NEW.tp_id;
     END IF;
+    NEW.geom := ST_Force2D(NEW.geom);
+    IF NEW.zone IS NULL THEN NEW.zone := sewer.zone_of(NEW.geom); END IF;
     NEW.x   := round(ST_X(NEW.geom)::numeric, 3);
     NEW.y   := round(ST_Y(NEW.geom)::numeric, 3);
     NEW.lon := round(ST_X(ST_Transform(NEW.geom, 4326))::numeric, 7);
     NEW.lat := round(ST_Y(ST_Transform(NEW.geom, 4326))::numeric, 7);
+    IF NEW.location_name IS NULL THEN
+        SELECT p.location_name INTO NEW.location_name FROM sewer.lateral_pipe p
+         WHERE ST_DWithin(p.geom, NEW.geom, 30) ORDER BY p.geom <-> NEW.geom LIMIT 1;
+    END IF;
     IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
     NEW.updated_at := now();
     RETURN NEW;
-END $$;
+END $_$;
 
 
 --
@@ -853,6 +889,45 @@ BEGIN
 END $$;
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: bore_log; Type: TABLE; Schema: sewer; Owner: -
+--
+
+CREATE TABLE sewer.bore_log (
+    bh_id text NOT NULL,
+    bh_no integer NOT NULL,
+    zone smallint,
+    mh_ref text,
+    surface text,
+    status text DEFAULT 'Direncanakan'::text NOT NULL,
+    exec_date date,
+    workers smallint,
+    soil_type text,
+    depth_m numeric(6,2),
+    gwl_m numeric(6,2),
+    doc_link text,
+    gpr_link text,
+    note text,
+    x numeric(12,3),
+    y numeric(12,3),
+    lon numeric(10,7),
+    lat numeric(10,7),
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    geom public.geometry(Point,32749)
+);
+
+
+--
+-- Name: TABLE bore_log; Type: COMMENT; Schema: sewer; Owner: -
+--
+
+COMMENT ON TABLE sewer.bore_log IS 'Titik bore log / soil boring. Titik kosong diisi dari posisi manhole mh_ref.';
+
+
 --
 -- Name: seq_cp; Type: SEQUENCE; Schema: sewer; Owner: -
 --
@@ -864,10 +939,6 @@ CREATE SEQUENCE sewer.seq_cp
     NO MAXVALUE
     CACHE 1;
 
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
 
 --
 -- Name: collecting_pipe; Type: TABLE; Schema: sewer; Owner: -
@@ -1267,7 +1338,11 @@ CREATE TABLE sewer.test_pit (
     lon numeric(10,7),
     lat numeric(10,7),
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    geom public.geometry(Point,32749) NOT NULL
+    geom public.geometry(Point,32749),
+    mh_ref text,
+    surface text,
+    mandor text,
+    doc_link text
 );
 
 
@@ -1275,7 +1350,7 @@ CREATE TABLE sewer.test_pit (
 -- Name: TABLE test_pit; Type: COMMENT; Schema: sewer; Owner: -
 --
 
-COMMENT ON TABLE sewer.test_pit IS 'Titik test pit. Status: Direncanakan, Digali, Selesai (warna di dashboard: abu-abu, oranye, hijau).';
+COMMENT ON TABLE sewer.test_pit IS 'Titik test pit. Status: Direncanakan, Digali, Selesai, Ditunda.';
 
 
 --
@@ -1852,6 +1927,22 @@ ALTER TABLE ONLY staging.manhole_raw ALTER COLUMN id SET DEFAULT nextval('stagin
 
 
 --
+-- Name: bore_log bore_log_bh_no_key; Type: CONSTRAINT; Schema: sewer; Owner: -
+--
+
+ALTER TABLE ONLY sewer.bore_log
+    ADD CONSTRAINT bore_log_bh_no_key UNIQUE (bh_no);
+
+
+--
+-- Name: bore_log bore_log_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
+--
+
+ALTER TABLE ONLY sewer.bore_log
+    ADD CONSTRAINT bore_log_pkey PRIMARY KEY (bh_id);
+
+
+--
 -- Name: collecting_pipe collecting_pipe_pkey; Type: CONSTRAINT; Schema: sewer; Owner: -
 --
 
@@ -2052,6 +2143,13 @@ ALTER TABLE ONLY staging.manhole_raw
 
 
 --
+-- Name: bore_log_gix; Type: INDEX; Schema: sewer; Owner: -
+--
+
+CREATE INDEX bore_log_gix ON sewer.bore_log USING gist (geom);
+
+
+--
 -- Name: collecting_pipe_gix; Type: INDEX; Schema: sewer; Owner: -
 --
 
@@ -2203,6 +2301,13 @@ CREATE INDEX sidx_house_inlet_raw_geom ON staging.house_inlet_raw USING gist (ge
 --
 
 CREATE INDEX sidx_ic_raw_geom ON staging.ic_raw USING gist (geom);
+
+
+--
+-- Name: bore_log trg_bh_derive; Type: TRIGGER; Schema: sewer; Owner: -
+--
+
+CREATE TRIGGER trg_bh_derive BEFORE INSERT OR UPDATE ON sewer.bore_log FOR EACH ROW EXECUTE FUNCTION sewer.trg_bh();
 
 
 --
