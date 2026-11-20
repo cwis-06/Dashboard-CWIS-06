@@ -177,3 +177,4 @@ table.t th:first-child,table.t td:first-child{text-align:left}table.t th{color:v
 #fdL{font-size:10.5px;max-width:84vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #flb .im img{max-height:46vh}
 }
+.pp .rptw{margin:10px 0 2px}.pp .rpt{width:100%;display:flex;justify-content:center;align-items:center;gap:6px;font-weight:600}
