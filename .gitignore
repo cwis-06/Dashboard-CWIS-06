@@ -1,2 +1,6 @@
 *.tif
 *.tiff
+config_lokal.bat
+diagnosa_hasil.txt
+*.tmp.geojson
+*.tmp.csv

@@ -467,5 +467,6 @@ function start(){
 Promise.all([get('data/v_lateral_pipe.geojson'),get('data/v_manhole.geojson')]).then(([a,b])=>{
  PIPES=norm(a.j);MH=norm(b.j);
  const lm=a.lm||b.lm;if(lm)$('upd').textContent=new Date(lm).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+  fetch('data/meta.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(m=>{const d=m&&m.updated?new Date(m.updated):null;if(d&&!isNaN(d))$('upd').textContent=d.toLocaleString('id-ID',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}).catch(()=>{});
  start();
 }).catch(e=>{$('map').innerHTML='<p style="padding:16px">Data tidak bisa dimuat: '+esc(e.message)+'. Pastikan folder data berisi v_lateral_pipe.geojson dan v_manhole.geojson, dan buka halaman lewat alamat GitHub Pages, bukan dengan klik dua kali file index.html.</p>'});

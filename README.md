@@ -96,18 +96,15 @@ git config --global user.email "email@anda.com"
 Database yang dipakai adalah PostgreSQL/PostGIS dengan database `db_cwis06`, schema `sewer`.
 
 1. Minta pengelola database untuk alamat server (host), port, nama user, dan password.
-2. Buka `update_dashboard.bat` dengan Notepad, lalu sesuaikan blok pengaturan di bagian atas:
+2. **Jangan mengubah isi `update_dashboard.bat`.** Salin `config_lokal.contoh.bat` menjadi `config_lokal.bat` di folder yang sama, lalu ubah barisnya (hapus `rem ` di depan baris yang dipakai):
 
    ```bat
-   set DB_HOST=localhost        rem ganti dengan alamat server jika database ada di komputer lain
-   set DB_PORT=5432
-   set DB_NAME=db_cwis06
-   set DB_USER=postgres         rem ganti dengan nama user Anda
-   set SRC_SRID=32749           rem jangan diubah (UTM 49S)
+   set DB_HOST=192.168.1.10     rem alamat server bila database ada di komputer lain
+   set DB_USER=editor_cwis06    rem nama user Anda
    ```
 
-3. Lakukan hal yang sama untuk `setup_otomasi.bat` jika Anda yang akan memasang otomasi.
-4. Di QGIS, tambahkan koneksi PostGIS: **Layer > Add Layer > Add PostGIS Layers > New**, isi host, port, database, user, dan password yang sama.
+   `config_lokal.bat` dibaca oleh `update_dashboard.bat`, `setup_otomasi.bat`, dan `cek_database.bat`, dan **tidak ikut terunggah** ke GitHub. Jadi pengaturan tiap orang tidak saling menimpa. Bila tidak ada `config_lokal.bat`, dipakai nilai bawaan (`localhost`, `5432`, `db_cwis06`, `postgres`).
+3. Di QGIS, tambahkan koneksi PostGIS: **Layer > Add Layer > Add PostGIS Layers > New**, isi host, port, database, user, dan password yang sama.
 
 Jika database ada di komputer lain, komputer itu harus bisa diakses dari jaringan Anda (satu jaringan atau lewat VPN), dan PostgreSQL harus mengizinkan koneksi dari komputer Anda (`listen_addresses` dan `pg_hba.conf`). Hubungi pengelola database untuk ini.
 
@@ -124,23 +121,53 @@ Skrip tidak menyimpan password di dalam file. Ada dua cara:
 
 ### Langkah 4: Pasang otomasi database (sekali per database, bukan per komputer)
 
-Hanya **satu orang** yang perlu menjalankan ini, yaitu pengelola database, dan hanya sekali. Letakkan `otomasi_qgis.sql` dan `setup_otomasi.bat` satu folder, lalu klik dua kali `setup_otomasi.bat`.
+Hanya **satu orang** yang perlu menjalankan ini, yaitu pengelola database. Klik dua kali `setup_otomasi.bat` di folder repo, dan ulangi setiap kali `otomasi_qgis_monitor.sql` berubah. Jika Anda hanya mengedit data, lewati langkah ini.
 
-Otomasi memasang trigger dan prosedur yang mengisi kolom otomatis (zona, RW, koordinat, panjang, node) dan memvalidasi tahap pekerjaan. Jika Anda hanya mengedit data, lewati langkah ini.
+Skrip hanya menjalankan file di daftar `FILES` (saat ini `otomasi_qgis_monitor.sql`: perbaikan view `v_lateral_pipe`, pemeriksaan kualitas data `qa_report`, riwayat progres `progress_snapshot`).
+
+**Penting:** trigger dan fungsi lain di database (kolom otomatis, validasi tahap, ujung pipa ikut bergeser, pengaman hapus manhole) sudah disesuaikan langsung di database dan berbeda dari file SQL lama. File lama disimpan di `sql/arsip/` hanya sebagai riwayat; **jangan dijalankan** karena akan menimpa versi yang berlaku. Struktur database yang sebenarnya dicatat otomatis oleh `update_dashboard.bat` ke `sql/skema_db_aktual.sql` setiap kali dijalankan.
+
+Sebelum memasang di database yang sudah berjalan, jalankan `cek_database.bat` lebih dulu. Skrip ini hanya membaca database dan menulis hasilnya ke `diagnosa_hasil.txt` (tidak ikut terunggah).
 
 ## B2. Alur kerja harian
 
 1. Di QGIS, edit layer di schema `sewer`. Layer yang diedit adalah tabel dasarnya (misalnya `manhole` dan `lateral_pipe`), sedangkan yang ditampilkan di dashboard adalah view `v_manhole` dan `v_lateral_pipe`.
 2. Klik **Save Edits**. Tanpa ini perubahan tidak masuk ke database, jadi dashboard tidak berubah.
 3. Klik dua kali `update_dashboard.bat` di folder repo.
-4. Skrip melakukan berurutan: sinkron dengan GitHub, menghitung ulang kolom otomatis, mengekspor semua layer ke `data/*.geojson`, commit, lalu push.
+4. Skrip melakukan berurutan:
+   1. sinkron dengan GitHub,
+   2. menghitung ulang kolom otomatis (`refresh_all`); bila gagal, proses berhenti,
+   3. **memeriksa kualitas data** (`qa_report`); temuan level ERROR menghentikan unggahan (lihat B2a),
+   4. menyimpan **riwayat progres hari ini** per zona (`progress_snapshot`) dan **struktur database yang berlaku** ke `sql/skema_db_aktual.sql`,
+   5. mengekspor semua layer ke `data/*.geojson` dan riwayat ke `data/progress_history.csv`,
+   6. commit lalu push. Bila push ditolak karena ada pembaruan dari komputer lain, skrip menyesuaikan, mengekspor ulang, lalu mencoba lagi (sampai 3 kali).
 5. Tunggu 1-2 menit, buka dashboard, lalu tekan **Ctrl+F5**.
 
 Aturan agar tidak bentrok:
 
-- Jangan menjalankan `update_dashboard.bat` bersamaan dengan orang lain. Skrip selalu mengambil pembaruan terbaru dulu, tetapi dua orang yang mengekspor di waktu yang sama bisa menimbulkan konflik.
+- Sebaiknya jangan menjalankan `update_dashboard.bat` bersamaan dengan orang lain. Di satu komputer, skrip menolak jalan dua kali sekaligus. Antarkomputer, push yang ditolak ditangani dengan sinkron dan ekspor ulang.
 - Jika skrip berhenti dengan tulisan konflik, jangan lanjutkan. Hubungi pengelola repo.
 - Pastikan semua orang mengedit **database yang sama**. Kalau tiap orang punya salinan database sendiri, data di GitHub akan saling menimpa.
+
+## B2a. Pemeriksaan kualitas data
+
+Setiap kali dijalankan, `update_dashboard.bat` menampilkan daftar temuan dari `sewer.qa_report()`:
+
+| Level | Contoh pemeriksaan | Akibat |
+|---|---|---|
+| ERROR | Manhole hulu/hilir pipa tidak ada, `stage_code` tidak terdaftar di `ref_stage`, objek tanpa geometri | Unggahan **dihentikan**. Perbaiki di QGIS, Save Edits, lalu jalankan lagi. |
+| PERINGATAN | Tanggal aktual di masa depan, sudah ada tahap tetapi `actual_date` kosong, pipa collecting belum tersambung, ID IC sementara (`TMP`) | Unggahan tetap jalan. |
+| INFO | Pipa atau manhole tanpa `plan_date` | Unggahan tetap jalan. Isi `plan_date` agar kurva S rencana bisa dibuat. |
+
+Daftar lengkapnya bisa dilihat kapan saja di DB Manager QGIS: `SELECT * FROM sewer.qa_report() WHERE n > 0;`
+
+Dalam keadaan darurat, ERROR bisa diturunkan menjadi peringatan dengan `set QA_WAJIB=0` di `config_lokal.bat`. Kembalikan setelah datanya diperbaiki.
+
+## B2b. Riwayat progres
+
+Tabel `sewer.progress_snapshot` menyimpan satu baris per zona per hari (zona `SEMUA` = total paket): jumlah dan panjang pipa, panjang terpasang setara, persen progres pipa, serta jumlah dan rata-rata progres manhole. Bila skrip dijalankan beberapa kali di hari yang sama, baris hari itu ditimpa. Riwayat diekspor ke `data/progress_history.csv` dan bisa dibuka di Excel. Isinya akan dipakai untuk grafik tren dan kurva S di dashboard.
+
+Label **Updated** di dashboard diambil dari `data/meta.json`, yang ditulis skrip hanya bila data berubah, berisi waktu ekspor dan nama operator (`git config user.name`).
 
 ## B3. Mengubah progres lewat tabel manhole
 
@@ -194,7 +221,7 @@ File `.tif` dan `.tiff` diabaikan oleh git (lihat `.gitignore`) supaya TIFF asli
 
 ## B5. Mengunggah perubahan selain data
 
-`update_dashboard.bat` hanya meng-commit `data/*.geojson`, `index.html`, dan `README.md`. Perubahan pada `js/`, `css/`, `tiles/`, atau file skrip tidak ikut terkirim. Untuk itu, kirim manual:
+`update_dashboard.bat` meng-commit `data/`, `index.html`, `README.md`, `js/`, `css/`, `img/`, `foto/`, `sql/`, `.gitignore`, serta file `.sql` dan `.bat` di folder utama. `config_lokal.bat` dan `diagnosa_hasil.txt` tidak pernah ikut. Hanya **tile ortofoto** (`tiles/`) yang tetap dikirim manual (lihat B4). Untuk mengirim perubahan tanpa menjalankan ekspor:
 
 ```bat
 cd C:\Users\NAMA_ANDA\Dashboard-CWIS-06
@@ -203,8 +230,6 @@ git commit -m "Pesan perubahan"
 git pull --rebase --autostash
 git push
 ```
-
-Agar otomatis, ganti baris `git add data/*.geojson index.html README.md` di `update_dashboard.bat` dengan `git add -A`.
 
 ## B6. Pemecahan masalah
 
@@ -215,7 +240,10 @@ Agar otomatis, ganti baris `git add data/*.geojson index.html README.md` di `upd
 | Layer baru tidak muncul | Layer opsional hanya muncul bila file GeoJSON-nya ada di `data/`. Cek pesan "Dilewati" saat skrip berjalan. |
 | `Folder ini bukan repo Git` | `update_dashboard.bat` harus berada di folder hasil `git clone`, satu folder dengan `index.html`. |
 | `ogr2ogr tidak ditemukan` atau `Folder QGIS tidak ditemukan` | QGIS harus terpasang di `C:\Program Files\QGIS ...`. Jika di lokasi lain, ubah baris pencarian QGIS di skrip. |
-| `psql tidak ditemukan` | Penghitungan ulang kolom otomatis dilewati. Pasang PostgreSQL client tools, atau abaikan jika otomasi tidak dipakai. |
+| `psql tidak ditemukan` | Skrip berhenti, karena psql dibutuhkan untuk penghitungan ulang dan pemeriksaan data. Pasang PostgreSQL Command Line Tools, atau isi `PSQL` di `config_lokal.bat`. |
+| `Penghitungan ulang gagal` atau `Pemeriksaan data tidak bisa dijalankan` | Otomasi database belum terpasang atau versinya lama. Jalankan `setup_otomasi.bat`. |
+| `Ada ... jenis temuan ERROR` | Baca daftar temuan di atasnya (kolom terakhir berisi contoh ID), perbaiki di QGIS, Save Edits, lalu jalankan lagi. |
+| `sedang berjalan di jendela lain` | Ada jendela update lain yang masih terbuka. Bila tidak ada, hapus file kunci yang disebutkan; kunci yang lebih dari 30 menit dihapus otomatis. |
 | `Push ditolak` atau `fetch first` | Ada commit baru dari orang lain. Jalankan `git pull --rebase --autostash`, lalu `git push`. |
 | `file exceeds GitHub's file size limit of 100 MB` | Ada file besar (biasanya TIFF) ikut ter-commit. Pastikan `.gitignore` berisi `*.tif` dan `*.tiff`, lalu batalkan commit dengan `git reset --soft HEAD~1`. |
 | `Authentication failed` atau `403` | Login GitHub kedaluwarsa atau tidak punya hak tulis. Login ulang, atau gunakan Personal Access Token. |
@@ -229,7 +257,8 @@ Agar otomatis, ganti baris `git add data/*.geojson index.html README.md` di `upd
 | Alamat Apps Script untuk foto | `FOTO_URL` di awal `js/app.js` |
 | Zoom mulai tampil house inlet | `HI_MINZ` di awal `js/app.js` (default 18) |
 | Daftar manhole paket sebelah | Daftar `REF` di `js/app.js`, atau kolom `is_reference` di database |
-| Koneksi database dan SRID | Blok pengaturan di awal `update_dashboard.bat` |
+| Koneksi database, lokasi QGIS/psql, `QA_WAJIB` | `config_lokal.bat` (salin dari `config_lokal.contoh.bat`) |
+| SRID sumber | `SRC_SRID` di awal `update_dashboard.bat` (jangan diubah, UTM 49S) |
 | Warna, huruf, tata letak | `css/style.css` |
 | Jalur dan zoom tile ortofoto | Baris `ortho` di `js/app.js` |
 
@@ -249,7 +278,7 @@ HP petugas (dashboard, tombol "Foto")
 
 1. **Buat folder Google Drive** untuk foto, misalnya `Foto Dokumentasi CWIS-06`. Klik kanan foldernya > **Bagikan** > Akses umum > **Siapa saja yang memiliki link**, peran **Pelihat**. Lalu salin **ID folder**, yaitu bagian akhir alamat setelah `/folders/`.
 2. **Buat Google Sheet baru**, misalnya `Data Foto CWIS-06`. Buka **Extensions > Apps Script** dari dalam Sheet itu. Jika Anda terlanjur membuat proyek Apps Script dari tempat lain (script.google.com atau Drive), isi `SHEET_ID` pada langkah 4.
-3. Hapus isi editor, lalu tempel seluruh isi `foto/Code.gs` dari repo ini.
+3. Hapus isi editor, lalu tempel seluruh isi `foto/Code.gs` dari repo ini. Di repo, `FOLDER_ID`, `SHEET_ID`, dan `KODE_AKSES` sengaja dikosongkan; isi hanya di editor Apps Script.
 4. Di bagian atas script, isi pengaturan berikut:
    - `FOLDER_ID`: ID folder dari langkah 1.
    - `SHEET_ID`: ID Google Sheet (bagian alamat di antara `/d/` dan `/edit`). Kosongkan hanya jika script dibuat lewat menu Extensions di dalam Sheet.
@@ -364,13 +393,20 @@ Dashboard-CWIS-06/
   css/style.css           tampilan (warna, huruf, mode gelap)
   js/app.js               logika peta, filter, popup
   data/*.geojson          hasil ekspor database (jangan diedit tangan)
+  data/meta.json          waktu ekspor terakhir dan operator (ditulis skrip)
+  data/progress_history.csv  riwayat progres harian per zona (ditulis skrip)
   img/                    logo header dan favicon
   foto/Code.gs            backend foto dokumentasi (disalin ke Google Apps Script, tidak dijalankan di GitHub)
   tiles/ortho/            tile ortofoto (z/x/y.jpg)
-  otomasi_qgis.sql        trigger dan prosedur otomasi database
-  setup_otomasi.bat       pasang otomasi (sekali, oleh pengelola database)
-  update_dashboard.bat    ekspor data dan push ke GitHub
-  .gitignore              mengabaikan *.tif dan *.tiff
+  otomasi_qgis_monitor.sql  view pipa, pemeriksaan data, riwayat progres
+  sql/skema_db_aktual.sql struktur database yang berlaku + isi ref_stage (ditulis skrip)
+  sql/                    skema awal, migrasi, diagnosa (tidak dijalankan otomatis)
+  sql/arsip/              file otomasi lama, hanya riwayat, jangan dijalankan
+  setup_otomasi.bat       pasang otomasi_qgis_monitor.sql (oleh pengelola database)
+  cek_database.bat        baca struktur database ke diagnosa_hasil.txt (tidak mengubah apa pun)
+  update_dashboard.bat    hitung ulang, periksa data, ekspor, dan push ke GitHub
+  config_lokal.contoh.bat contoh pengaturan lokal (salin menjadi config_lokal.bat)
+  .gitignore              mengabaikan TIFF, config_lokal.bat, diagnosa_hasil.txt, file sementara
 ```
 
 ## Data
