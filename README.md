@@ -12,6 +12,9 @@ Dokumen ini dibagi dua bagian:
 - **Bagian A** untuk semua orang yang hanya ingin melihat dashboard.
 - **Bagian B** untuk tim yang memperbarui data, termasuk cara menghubungkan komputer masing-masing.
 
+Panduan langkah demi langkah per fitur (untuk replikasi) ada di folder [`panduan/`](panduan/README.md):
+sinkron test pit dari Google Sheet, salinan foto ke SharePoint, dan watermark foto kamera.
+
 ---
 
 # Bagian A. Menggunakan dashboard
@@ -136,11 +139,12 @@ Sebelum memasang di database yang sudah berjalan, jalankan `cek_database.bat` le
 3. Klik dua kali `update_dashboard.bat` di folder repo.
 4. Skrip melakukan berurutan:
    1. sinkron dengan GitHub,
-   2. menghitung ulang kolom otomatis (`refresh_all`); bila gagal, proses berhenti,
-   3. **memeriksa kualitas data** (`qa_report`); temuan level ERROR menghentikan unggahan (lihat B2a),
-   4. menyimpan **riwayat progres hari ini** per zona (`progress_snapshot`) dan **struktur database yang berlaku** ke `sql/skema_db_aktual.sql`,
-   5. mengekspor semua layer ke `data/*.geojson` dan riwayat ke `data/progress_history.csv`,
-   6. commit lalu push. Bila push ditolak karena ada pembaruan dari komputer lain, skrip menyesuaikan, mengekspor ulang, lalu mencoba lagi (sampai 3 kali).
+   2. **sinkron test pit dari Google Sheet** (tab TEST PIT ke tabel `test_pit`; dilewati bila `TP_SHEET_ID` belum diisi, lihat `panduan/01_sinkron_test_pit.md`),
+   3. menghitung ulang kolom otomatis (`refresh_all`); bila gagal, proses berhenti,
+   4. **memeriksa kualitas data** (`qa_report`); temuan level ERROR menghentikan unggahan (lihat B2a),
+   5. menyimpan **riwayat progres hari ini** per zona (`progress_snapshot`) dan **struktur database yang berlaku** ke `sql/skema_db_aktual.sql`,
+   6. mengekspor semua layer ke `data/*.geojson` dan riwayat ke `data/progress_history.csv`,
+   7. commit lalu push. Bila push ditolak karena ada pembaruan dari komputer lain, skrip menyesuaikan, mengekspor ulang, lalu mencoba lagi (sampai 3 kali).
 5. Tunggu 1-2 menit, buka dashboard, lalu tekan **Ctrl+F5**.
 
 Aturan agar tidak bentrok:
@@ -397,12 +401,16 @@ Dashboard-CWIS-06/
   data/progress_history.csv  riwayat progres harian per zona (ditulis skrip)
   img/                    logo header dan favicon
   foto/Code.gs            backend foto dokumentasi (disalin ke Google Apps Script, tidak dijalankan di GitHub)
+  foto/Antrian.gs         antrian salinan foto ke SharePoint (disalin ke Apps Script; panduan/02)
+  sinkron/ambil_sheet_testpit.ps1  unduh tab TEST PIT dari Google Sheet (dipanggil update_dashboard.bat)
+  panduan/                panduan langkah demi langkah per fitur untuk replikasi
   tiles/ortho/            tile ortofoto (z/x/y.jpg)
   otomasi_qgis_monitor.sql  view pipa, pemeriksaan data, riwayat progres
   sql/skema_db_aktual.sql struktur database yang berlaku + isi ref_stage (ditulis skrip)
   sql/isi_plan_date_msp.sql  tanggal rencana dari MSP dan urutan jacking Zona 2 (dijalankan manual)
   sql/test_pit.sql        tabel test pit + 215 titik (dipasang setup_otomasi.bat)
   sql/bore_log.sql        tabel bore log / soil boring (dipasang setup_otomasi.bat)
+  sql/sinkron_test_pit.sql  fungsi sinkron test pit dari Google Sheet (dipasang setup_otomasi.bat)
   sql/diagnosa.sql        query baca-saja untuk cek_database.bat
   sql/arsip/              skema awal, migrasi, dan otomasi lama; hanya riwayat, jangan dijalankan
   _koneksi.bat            pengaturan koneksi bersama (dipanggil skrip lain, tidak dijalankan sendiri)

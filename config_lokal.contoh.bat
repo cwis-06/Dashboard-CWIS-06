@@ -11,3 +11,7 @@ rem set QGIS_DIR=D:\QGIS 3.40
 rem set PSQL=D:\PostgreSQL\15\bin\psql.exe
 rem 0 = temuan ERROR hanya peringatan (darurat saja)
 rem set QA_WAJIB=0
+rem Sinkron test pit dari Google Sheet (panduan\01_sinkron_test_pit.md).
+rem ID = bagian alamat Sheet di antara /d/ dan /edit ; GID = angka setelah gid= pada tab TEST PIT
+rem set TP_SHEET_ID=isi_id_sheet_di_sini
+rem set TP_SHEET_GID=0

@@ -13,6 +13,8 @@ set "SRC_SRID=32749"
 set "QA_WAJIB=1"
 set "QGIS_DIR="
 set "PSQL="
+set "TP_SHEET_ID="
+set "TP_SHEET_GID=0"
 if exist "%~dp0config_lokal.bat" call "%~dp0config_lokal.bat"
 
 if not defined PSQL for /d %%D in ("C:\Program Files\PostgreSQL\*") do if exist "%%~fD\bin\psql.exe" set "PSQL=%%~fD\bin\psql.exe"

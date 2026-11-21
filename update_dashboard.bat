@@ -29,14 +29,17 @@ for /f "delims=" %%T in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy
 set "ORIGPATH=%PATH%"
 set "SQL="%PSQL%" -w -q -X -v ON_ERROR_STOP=1"
 
-echo [1/6] Sinkron dengan GitHub ...
+echo [1/7] Sinkron dengan GitHub ...
 git pull --rebase --autostash || goto :gagal
 git ls-files -u | findstr . >nul && ( echo Ada file konflik setelah sinkron. & git status --short & goto :gagal )
 
-echo [2/6] Menghitung ulang kolom otomatis ...
+echo [2/7] Sinkron test pit dari Google Sheet ...
+call :sinkron_testpit
+
+echo [3/7] Menghitung ulang kolom otomatis ...
 %SQL% -c "CALL sewer.refresh_all();" || ( echo Gagal. Bila fungsi tidak ada, jalankan setup_otomasi.bat. & goto :gagal )
 
-echo [3/6] Memeriksa kualitas data ...
+echo [4/7] Memeriksa kualitas data ...
 %SQL% -A -t -F " | " -c "SELECT level, check_name, n, coalesce(contoh,'') FROM sewer.qa_report() WHERE n > 0 ORDER BY CASE level WHEN 'ERROR' THEN 0 WHEN 'PERINGATAN' THEN 1 ELSE 2 END, check_name" || goto :gagal
 rem Tanpa "-v ON_ERROR_STOP=1": tanda = di dalam for /f dibaca cmd sebagai pemisah dan merusak perintah.
 set "QAERR="
@@ -47,19 +50,19 @@ if not "%QAERR%"=="0" if "%QA_WAJIB%"=="1" (
   goto :gagal
 )
 
-echo [4/6] Menyimpan riwayat progres dan struktur database ...
+echo [5/7] Menyimpan riwayat progres dan struktur database ...
 %SQL% -c "CALL sewer.snapshot_progress();" || echo   Peringatan: riwayat progres gagal disimpan.
 call :simpan_skema
 
 set /a COBA=0
 :publikasi
 set /a COBA+=1
-echo [5/6] Mengekspor layer ke data\ ...
+echo [6/7] Mengekspor layer ke data\ ...
 call :ekspor_semua || goto :gagal
 
-echo [6/6] Mengunggah ke GitHub ...
+echo [7/7] Mengunggah ke GitHub ...
 findstr /m /c:"<<<<<<<" index.html README.md js\app.js >nul 2>&1 && ( echo Masih ada tanda konflik git. & goto :gagal )
-for %%P in (data index.html README.md js css img foto sql .gitignore "*.sql" "*.bat") do git add -A -- %%P >nul 2>&1
+for %%P in (data index.html README.md js css img foto sql sinkron panduan .gitignore "*.sql" "*.bat") do git add -A -- %%P >nul 2>&1
 git diff --cached --quiet -- data || (
   powershell -NoProfile -Command "[IO.File]::WriteAllText('data\meta.json', (@{updated=(Get-Date -Format o); operator=$env:OPERATOR} | ConvertTo-Json -Compress))"
   git add -- data/meta.json
@@ -78,6 +81,21 @@ echo Selesai. Dashboard terbarui dalam 1-2 menit (muat ulang dengan Ctrl+F5).
 goto :selesai
 
 rem ============================ SUBRUTIN ============================
+
+:sinkron_testpit
+rem Tab TEST PIT di Google Sheet -> staging.tp_sheet -> sewer.sinkron_test_pit().
+rem Tidak menghentikan update bila gagal. Penjelasan: panduan\01_sinkron_test_pit.md
+if not defined TP_SHEET_ID ( echo   Dilewati: TP_SHEET_ID belum diisi di config_lokal.bat. & exit /b 0 )
+set "TPCSV=%TEMP%\cwis06_tp_sheet.csv"
+if exist "%TPCSV%" del "%TPCSV%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "sinkron\ambil_sheet_testpit.ps1" -Url "https://docs.google.com/spreadsheets/d/%TP_SHEET_ID%/export?format=csv&gid=%TP_SHEET_GID%" -Out "%TPCSV%"
+if errorlevel 1 ( echo   Peringatan: Sheet test pit gagal diunduh. Test pit memakai isi database. & exit /b 0 )
+set "TPCSV_F=%TPCSV:\=/%"
+%SQL% -c "TRUNCATE staging.tp_sheet" -c "\copy staging.tp_sheet (tp,zona,mh,utilitas,permukaan,status,tanggal,link,mandor) FROM '%TPCSV_F%' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
+if errorlevel 1 ( echo   Peringatan: isi Sheet gagal dimuat. Bila tabel staging.tp_sheet belum ada, jalankan setup_otomasi.bat. & exit /b 0 )
+%SQL% -A -t -F " | " -c "SELECT hasil, jumlah, coalesce(contoh,'') FROM sewer.sinkron_test_pit() WHERE jumlah > 0"
+if errorlevel 1 echo   Peringatan: sinkron test pit gagal. Bila fungsi belum ada, jalankan setup_otomasi.bat.
+exit /b 0
 :simpan_skema
 rem Struktur database yang berlaku + isi ref_stage disimpan ke sql\skema_db_aktual.sql.
 if not exist "%PGDUMP%" ( echo   Dilewati: pg_dump tidak ditemukan. & exit /b 0 )
