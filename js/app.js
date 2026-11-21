@@ -430,8 +430,9 @@ FUP.innerHTML='<div class="cd" role="dialog" aria-modal="true" aria-labelledby="
  +'<label class="f">ID manhole, pipa, atau test pit (opsional)<input id="fI" type="text" list="fIL" autocomplete="off" placeholder="mis. MHJ_06_0752"></label><datalist id="fIL"></datalist>'
  +'<label class="f">Tanggal kegiatan<input id="fT" type="date"></label>'
  +'<label class="f">Keterangan kegiatan<textarea id="fD" rows="2" maxlength="300" placeholder="mis. Pekerjaan grouting shaft"></textarea></label>'
- +'<div class="fb"><button type="button" class="btn" id="fCam">Ambil foto</button><button type="button" class="btn" id="fGal">Pilih dari galeri</button></div>'
+ +'<div class="fb"><button type="button" class="btn" id="fCam">Ambil foto (kamera)</button><button type="button" class="btn" id="fGal">Pilih dari galeri</button></div>'
  +'<input type="file" id="fFc" accept="image/*" capture="environment" hidden><input type="file" id="fFg" accept="image/*" multiple hidden>'
+ +'<p class="sm">Foto dari kamera diberi watermark otomatis: logo, hari, tanggal, jam, koordinat, dan kegiatan. Foto dari galeri tidak diberi watermark.</p>'
  +'<div class="fth" id="fTh"></div>'
  +'<div class="floc"><b>Lokasi foto</b><p class="sm" id="fLs"></p>'
  +'<label class="fr"><input type="radio" name="fsrc" value="gps" checked><span>Lokasi saya sekarang (GPS). Pilih ini bila foto diambil di tempat.</span></label>'
@@ -455,14 +456,38 @@ function fRefresh(failed){const q=fPt($('fI').value),r=document.querySelectorAll
 function fLoc(){fGps=null;$('fLs').textContent='Mencari lokasi GPS...';
  if(!navigator.geolocation){fRefresh(true);return}
  navigator.geolocation.getCurrentPosition(p=>{fGps={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)};fRefresh()},()=>{fGps=null;fRefresh(true)},{enableHighAccuracy:true,timeout:20000,maximumAge:0})}
-function fThumbs(){const w=$('fTh');w.innerHTML='';fFiles.forEach((f,i)=>{const d=document.createElement('div'),im=new Image(),b=document.createElement('button');im.src=URL.createObjectURL(f);im.alt='';b.type='button';b.textContent='×';b.setAttribute('aria-label','Hapus foto');b.onclick=()=>{fFiles.splice(i,1);fThumbs()};d.append(im,b);w.append(d)})}
+function fThumbs(){const w=$('fTh');w.innerHTML='';fFiles.forEach((f,i)=>{const d=document.createElement('div'),im=new Image(),b=document.createElement('button');im.src=URL.createObjectURL(f);im.alt='';b.type='button';b.textContent='×';b.setAttribute('aria-label','Hapus foto');b.onclick=()=>{fFiles.splice(i,1);fThumbs()};d.append(im,b);if(f._cam){const t=document.createElement('span');t.className='wm';t.textContent='WM';t.title='Akan diberi watermark';d.append(t)}w.append(d)})}
 const F_MAX=10;   // jumlah foto maksimal per sekali unggah
 function fAdd(list){let skip=0;[...list].forEach(f=>{if(fFiles.length<F_MAX)fFiles.push(f);else skip++});$('fMsg').textContent=skip?'Maksimal '+F_MAX+' foto per unggahan. '+skip+' foto tidak ditambahkan.':'';fThumbs()}
-async function fKecil(file){let bm;
+/* ----- Watermark foto kamera: logo, hari dan tanggal, jam, koordinat, kegiatan -----
+   Hanya untuk foto yang diambil langsung lewat tombol "Ambil foto (kamera)" (dan berkasnya baru dibuat, < 5 menit).
+   Foto dari galeri dikirim apa adanya tanpa watermark. */
+const WM_LOGO=new Image();WM_LOGO.src='img/logo-header.png';
+const WM_PROYEK='CWIS-06 Semarang Sewerage Genuk B · JV WSKT–NK–RPJ';
+function wmBaris(g,teks,maxW){const kata=String(teks).split(/\s+/),out=[];let b='';
+ kata.forEach(k=>{const c=b?b+' '+k:k;if(g.measureText(c).width>maxW&&b){out.push(b);b=k}else b=c});if(b)out.push(b);return out}
+function wmGambar(c,wm){const g=c.getContext('2d'),W=c.width,H=c.height,u=Math.min(W,H)/100,fs=Math.max(14,Math.round(u*3.1)),pad=Math.round(u*2.4),lh=Math.round(fs*1.32),F=' system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+ const t=wm.t,hari=t.toLocaleDateString('id-ID',{weekday:'long',timeZone:TZ}),tgl=t.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric',timeZone:TZ}),jam=t.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',timeZone:TZ}).replace('.',':');
+ // logo (gabungan PU, ADB, konsultan, JV) di kiri atas dengan latar putih
+ const lg=WM_LOGO.complete&&WM_LOGO.naturalWidth?WM_LOGO:null;
+ if(lg){const lw=Math.round(Math.min(W*.5,u*46)),lhh=Math.round(lw*lg.naturalHeight/lg.naturalWidth),r=Math.round(u*.9),lx=pad,ly=pad;
+  g.fillStyle='rgba(255,255,255,.95)';g.beginPath();g.roundRect?g.roundRect(lx-r,ly-r,lw+2*r,lhh+2*r,r):g.rect(lx-r,ly-r,lw+2*r,lhh+2*r);g.fill();g.drawImage(lg,lx,ly,lw,lhh)}
+ // teks di bawah
+ const maxW=W-pad*2;g.font='500 '+fs+'px'+F;
+ const keg=wmBaris(g,'Kegiatan: '+(wm.keg||'-'),maxW).slice(0,3);
+ const baris=[{t:hari+', '+tgl+' · '+jam+' WIB',b:1},{t:wm.gps?('Koordinat '+wm.gps.lat.toFixed(6)+', '+wm.gps.lng.toFixed(6)+(wm.gps.acc?' (±'+wm.gps.acc+' m)':'')):'Koordinat tidak tersedia (GPS mati)'},...keg.map(k=>({t:k})),...(wm.id?[{t:'Lokasi: '+wm.id}]:[]),{t:WM_PROYEK,s:1}];
+ const tinggi=baris.length*lh+pad*2,y0=H-tinggi;
+ const gr=g.createLinearGradient(0,y0-pad*2,0,H);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.3,'rgba(0,0,0,.55)');gr.addColorStop(1,'rgba(0,0,0,.8)');g.fillStyle=gr;g.fillRect(0,y0-pad*2,W,tinggi+pad*2);
+ g.textBaseline='top';g.shadowColor='rgba(0,0,0,.6)';g.shadowBlur=Math.round(u*.4);
+ let y=H-pad-baris.length*lh+Math.round((lh-fs)/2);
+ baris.forEach(r=>{g.font=(r.b?'700 ':'500 ')+Math.round(r.s?fs*.82:fs)+'px'+F;g.fillStyle=r.b?'#ffd43b':r.s?'rgba(255,255,255,.82)':'#fff';g.fillText(r.t,pad,y,maxW);y+=lh});
+ g.shadowBlur=0}
+async function fKecil(file,wm){let bm;
  try{bm=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bm=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(file)})}
  const w=bm.width||bm.naturalWidth,h=bm.height||bm.naturalHeight,k=Math.min(1,1600/Math.max(w,h)),c=document.createElement('canvas');
  c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext('2d').drawImage(bm,0,0,c.width,c.height);
- const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.8));
+ if(wm)wmGambar(c,wm);
+ const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));
  return await new Promise((ok,no)=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result).split(',')[1]);fr.onerror=no;fr.readAsDataURL(blob)})}
 function fOpen(){if(tOn)tClose();map.closePopup();if(mOn)msrSet(false);if(mob())sh(0);
  const hi=ymd(new Date());$('fT').max=hi;$('fT').min=dPlus(hi,-60);$('fT').value=hi;
@@ -474,11 +499,13 @@ const fClose=()=>{FUP.hidden=true};
 async function fKirim(){if(fBusy)return;const nama=$('fN').value.trim(),pin=$('fK').value.trim(),m=$('fMsg'),idv=$('fI').value.trim(),q=fPt(idv),src=document.querySelector('[name=fsrc]:checked').value,pt=src==='id'&&q?q:fGps,tg=$('fT').value||ymd(new Date());
  if(!nama){m.textContent='Isi nama petugas.';return}if(!pin){m.textContent='Isi kode akses.';return}
  if(!fFiles.length){m.textContent='Tambahkan minimal satu foto.';return}
+ const keg=$('fD').value.trim();if(!keg&&fFiles.some(f=>f._cam)){m.textContent='Isi keterangan kegiatan. Keterangan ini ditulis di watermark foto kamera.';return}
  if(!pt){m.textContent='Lokasi belum tersedia. Ambil ulang lokasi atau isi ID manhole atau pipa yang valid.';return}
  fBusy=true;$('fS').disabled=true;LS('fo_nama',nama);LS('fo_kode',pin);
  try{const total=fFiles.length;let noShare=false;
   for(let i=0;i<total;i++){m.textContent='Mengunggah foto '+(i+1)+' dari '+total+'...';
-   const b64=await fKecil(fFiles[0]);
+   const f0=fFiles[0],wm=f0._cam?{t:f0._t,gps:f0._gps||(src==='gps'?fGps:null),keg:keg,id:q?q.nm:''}:null;
+   const b64=await fKecil(f0,wm);
    const r=await fetch(FOTO_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kode_akses:pin,nama:nama,kode:idv,tanggal:tg,keterangan:$('fD').value.trim(),lat:pt.lat,lng:pt.lng,akurasi:src==='gps'&&fGps?fGps.acc:'',sumber:src==='id'&&q?'titik '+q.nm:'gps',foto:b64})});
    const j=await r.json();if(!j.ok)throw new Error(j.pesan||'Server menolak unggahan');if(j.bagikan===false)noShare=true;
    fFiles.shift();fThumbs()}
@@ -487,7 +514,11 @@ async function fKirim(){if(fBusy)return;const nama=$('fN').value.trim(),pin=$('f
  catch(e){m.textContent='Gagal mengunggah: '+(e.message||e)+'. Periksa sinyal dan kode akses, lalu coba lagi.'}
  finally{fBusy=false;$('fS').disabled=false}}
 $('fCam').onclick=()=>$('fFc').click();$('fGal').onclick=()=>$('fFg').click();
-$('fFc').onchange=e=>{fAdd(e.target.files);e.target.value=''};$('fFg').onchange=e=>{fAdd(e.target.files);e.target.value=''};
+$('fFc').onchange=e=>{const now=Date.now(),fs=[...e.target.files];
+ fs.forEach(f=>{const baru=!f.lastModified||Math.abs(now-f.lastModified)<5*60*1000;   // berkas lama (dipilih dari galeri lewat tombol kamera) tidak diberi watermark
+  if(baru){f._cam=true;f._t=new Date(f.lastModified&&Math.abs(now-f.lastModified)<5*60*1000?f.lastModified:now);f._gps=fGps?{...fGps}:null}});
+ fAdd(fs);e.target.value='';
+ if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>{const g={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)};fGps=g;fs.forEach(f=>{if(f._cam&&(!f._gps||g.acc<=f._gps.acc))f._gps=g});fRefresh()},()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:0})};$('fFg').onchange=e=>{fAdd(e.target.files);e.target.value=''};
 $('fI').oninput=()=>fRefresh();$('fRe').onclick=fLoc;$('fX').onclick=fClose;$('fS').onclick=fKirim;
 document.addEventListener('keydown',e=>{if(!FUP.hidden&&e.key==='Escape')fClose()});
 
