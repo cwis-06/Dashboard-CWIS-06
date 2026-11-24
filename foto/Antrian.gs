@@ -4,14 +4,20 @@
  * Panduan lengkap: panduan/02_foto_ke_sharepoint.md
  * Memakai fungsi yang sudah ada di Code.gs: sheet_(), info_(), tglSel_(), linkFoto_(), ZONA_WAKTU.
  *
- * Cara kerja: tiap 15 menit, foto baru di tab "Dokumentasi Lapangan" dicatat ke tab "Antrian SharePoint".
- * Power Automate membaca tab itu, menyalin fotonya ke SharePoint, lalu mengisi kolom status = "selesai".
+ * Cara kerja (versi B, tanpa konektor Google Sheets di Power Automate):
+ *  - tiap 15 menit, foto baru di tab "Dokumentasi Lapangan" dicatat ke tab "Antrian SharePoint";
+ *  - daftar foto yang masuk antrian dalam HARI_JENDELA hari terakhir ditulis ke file
+ *    "antrian_sharepoint.json" di folder Drive yang sama dengan Sheet foto;
+ *  - Power Automate membaca file JSON itu (1 panggilan Google Drive), mengecek ke SharePoint
+ *    apakah foto sudah ada, dan hanya menyalin yang belum ada.
  * Code.gs tidak diubah sama sekali.
  */
 const NAMA_SHEET_ANTRIAN = 'Antrian SharePoint';
 const KOLOM_ANTRIAN = ['file_id', 'nama_file', 'folder', 'tanggal', 'waktu', 'petugas', 'tim', 'kode',
                        'keterangan', 'lat', 'lng', 'link_foto', 'status', 'dicatat'];
 const MAKS_PER_JALAN = 200;   // batas baris baru per sekali jalan (foto lama ikut masuk bertahap)
+const NAMA_FILE_JSON = 'antrian_sharepoint.json';
+const HARI_JENDELA = 7;       // foto yang masuk antrian dalam 7 hari terakhir ikut dicek flow
 
 // Jalankan SEKALI dari editor: menyiapkan tab antrian dan mengisi foto lama.
 // Pemicu 15 menit dibuat lewat menu Pemicu (ikon jam), BUKAN dari kode, supaya
@@ -51,6 +57,7 @@ function isiAntrianSP() {
     }
     if (baru.length) q.getRange(q.getLastRow() + 1, 1, baru.length, KOLOM_ANTRIAN.length).setValues(baru);
     console.log('Masuk antrian: ' + baru.length + ' foto');
+    tulisJsonSP();
   } finally {
     lock.releaseLock();
   }
@@ -94,4 +101,48 @@ function diagnosaAntrianSP() {
     catch (e) { console.log('Gagal buka file di Drive: ' + e.message); }
   }
   console.log('Baris di Antrian SharePoint: ' + (antrian_().getLastRow() - 1));
+}
+
+// Menulis daftar foto untuk Power Automate ke file JSON di Drive.
+// Isi: foto yang dicatat ke antrian dalam HARI_JENDELA hari terakhir,
+// atau semua foto bila mode semua aktif (lihat modeSemuaSP).
+function tulisJsonSP() {
+  const q = antrian_(), n = q.getLastRow() - 1;
+  const semua = PropertiesService.getScriptProperties().getProperty('SP_SEMUA') === '1';
+  const batas = Date.now() - HARI_JENDELA * 24 * 3600 * 1000;
+  const isi = [];
+  if (n > 0) {
+    q.getRange(2, 1, n, KOLOM_ANTRIAN.length).getValues().forEach(r => {
+      const dicatat = r[13] instanceof Date ? r[13].getTime() : 0;      // kolom "dicatat"
+      if (r[0] && (semua || dicatat >= batas)) {
+        isi.push({ file_id: String(r[0]), nama_file: String(r[1]), folder: String(r[2]) });
+      }
+    });
+  }
+  const f = fileJson_();
+  f.setContent(JSON.stringify(isi));
+  console.log('File JSON (' + f.getName() + ', id ' + f.getId() + '): ' + isi.length + ' foto, ' +
+              (semua ? 'mode semua' : HARI_JENDELA + ' hari terakhir'));
+}
+
+// Sekali-sekali: masukkan SEMUA foto ke file JSON (mis. untuk menyalin ulang foto lama).
+function modeSemuaSP() {
+  PropertiesService.getScriptProperties().setProperty('SP_SEMUA', '1');
+  tulisJsonSP();
+}
+
+// Kembali ke mode biasa (hanya HARI_JENDELA hari terakhir).
+function modeNormalSP() {
+  PropertiesService.getScriptProperties().deleteProperty('SP_SEMUA');
+  tulisJsonSP();
+}
+
+// File JSON dibuat sekali di folder tempat Sheet foto berada; ID-nya diingat di Script Properties.
+function fileJson_() {
+  const props = PropertiesService.getScriptProperties(), id = props.getProperty('SP_JSON_ID');
+  if (id) { try { return DriveApp.getFileById(id); } catch (e) { /* file terhapus: buat lagi */ } }
+  const folder = DriveApp.getFileById(sheet_().getParent().getId()).getParents().next();
+  const f = folder.createFile(NAMA_FILE_JSON, '[]', MimeType.PLAIN_TEXT);
+  props.setProperty('SP_JSON_ID', f.getId());
+  return f;
 }
