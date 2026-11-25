@@ -16,7 +16,7 @@ const FOTO_URL='https://script.google.com/macros/s/AKfycbztnQkhdsc40_oCW97_k-kqZ
 const FOTO_AUTO=false;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil). Dimatikan di HP terlepas dari ini (lihat FOTO_AUTO_MOBILE).
 const FOTO_AUTO_MOBILE=false;   // sama, tapi khusus layar sempit (<=820px). Biarkan false: di HP jendela besar ini mengganggu saat baru buka halaman.
 const SHOW_HI_STATS=false;   // false: sembunyikan jumlah SR dan HI (baris "House inlet" di ringkasan progres, tabel "House inlet per zona", dan angka di daftar layer). true: tampilkan lagi.
-const SHOW_PROGRESS=true;   // false: sembunyikan tampilan progres (tombol Progres, ringkasan Progres Pekerjaan Pipa, filter Status, Progres per zona, serta persen progres di popup dan laporan). Tanggal rencana tetap tampil. true: tampilkan lagi.
+const SHOW_PROGRESS=false;   // false: sembunyikan tampilan progres (tombol Progres, ringkasan Progres Pekerjaan Pipa, filter Status, Progres per zona, serta persen progres di popup dan laporan). Tanggal rencana tetap tampil. true: tampilkan lagi.
 const HI_MINZ=18;   // house inlet (SR/HI/HIP) baru tampil mulai zoom ini. Naikkan bila masih padat, turunkan bila ingin lebih cepat muncul.
 /* ======================= */
 const map=L.map('map',{preferCanvas:true,zoomControl:false,maxZoom:28,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,renderer:L.canvas({tolerance:5})});L.control.zoom({position:'topright'}).addTo(map);
@@ -146,6 +146,16 @@ const popTP=p=>'<div class="pp"><h3>'+esc(p.tp_id)+'</h3><p class="sub">Test pit
 /* Bore log (soil boring): data dari tabel sewer.bore_log, diekspor ke data/bore_log.geojson */
 const BHC={rencana:G0,selesai:'#7b2cbf'},bhCol=p=>/selesai|done|finish/i.test(String(p.status||''))?BHC.selesai:BHC.rencana;
 const popBH=p=>'<div class="pp"><h3>'+esc(p.bh_id)+'</h3><p class="sub">Bore log'+(p.status?', '+esc(p.status):'')+'</p><table>'+row('Manhole acuan',esc(p.mh_ref||'')||null)+row('Zona',p.zone)+row('Jenis permukaan',esc(p.surface||'')||null)+row('Tanggal pelaksanaan',fD(p.exec_date)||'Belum dilaksanakan')+row('Jumlah pekerja',p.workers==null?null:fmt(Number(p.workers),0)+' orang')+row('Jenis tanah',esc(p.soil_type||'')||null)+row('Kedalaman bor',p.depth_m==null?null:fmt(Number(p.depth_m),2)+' m')+row('Muka air tanah',p.gwl_m==null?null:fmt(Number(p.gwl_m),2)+' m')+row('Dokumen bore log',lnk(p.doc_link,'Buka folder'))+row('Dokumen GPR',lnk(p.gpr_link,'Buka folder'))+row('Keterangan',esc(p.note||'')||null)+'</table>'+fDocs(p.bh_id)+rptBtn('b',p.bh_id)+'</div>';
+/* Ringkasan progres test pit di panel kiri (selalu tampil, tidak tergantung SHOW_PROGRESS) */
+function tpProg(g){const f=g.features.filter(x=>x.geometry&&x.geometry.type==='Point'),c={},z={};
+ f.forEach(x=>{const p=x.properties,k=tpSt(p),zn=p.zone==null||p.zone===''?'-':String(p.zone);c[k]=(c[k]||0)+1;(z[zn]=z[zn]||{n:0,d:0}).n++;if(k==='selesai')z[zn].d++});
+ const n=f.length,d=c.selesai||0,pct=n?100*d/n:0;let el=$('tpProg');
+ if(!el){const fl=document.querySelector('aside .fl'),anc=fl&&fl.previousElementSibling&&fl.previousElementSibling.tagName==='H2'?fl.previousElementSibling:fl;if(!anc)return;
+  const h=document.createElement('h2');h.textContent='Progres Test Pit';el=document.createElement('div');el.id='tpProg';el.className='pg';anc.parentNode.insertBefore(h,anc);anc.parentNode.insertBefore(el,anc)}
+ const zs=Object.keys(z).sort((a,b)=>(parseFloat(a)||99)-(parseFloat(b)||99));
+ el.innerHTML='<span class="sm">Test pit sudah dilaksanakan</span><br><b>'+fmt(d,0)+' <span style="font-size:.55em;font-weight:500">/ '+fmt(n,0)+' titik ('+fmt(pct,1)+'%)</span></b><div class="bar"><i style="width:'+pct.toFixed(1)+'%;background:#2eaa5c"></i></div>'
+  +'<dl class="k">'+[['Selesai',c.selesai],['Sedang digali',c.digali],['Direncanakan',c.rencana],['Ditunda',c.tunda]].filter(([,v])=>v).map(([k,v])=>'<dt>'+k+'</dt><dd>'+fmt(v,0)+'</dd>').join('')
+  +zs.map(k=>'<dt>Zona '+esc(k)+'</dt><dd>'+fmt(z[k].d,0)+' / '+fmt(z[k].n,0)+'</dd>').join('')+'</dl>'}
 function buildStatic(s,g){const poly=s.k==='zona'||s.k==='rw';
  g.features.forEach(x=>{const p=x.properties,id=p[s.id],hk=s.k==='hi'?hcat(p):null,gk=hk||s.k,G=SL[gk];if(hk)p.kategori=HIL[hk];let l,inner;
   if(x.geometry.type==='Point'){const c=x.geometry.coordinates;inner=l=cm([c[1],c[0]],s.k==='tp'?{hit:10,radius:7,color:'#5c3b1e',weight:2,fillColor:tpCol(p),fillOpacity:1}:s.k==='bh'?{hit:10,radius:6,color:'#fff',weight:2.5,fillColor:bhCol(p),fillOpacity:1}:s.k==='ic'?{hit:8,radius:5,color:'#fff',weight:1.2,fillColor:'#d6336c',fillOpacity:1}:hk==='hip'?{hit:7,radius:3.5,color:HIC.hip,weight:1.5,fillOpacity:0}:{hit:7,radius:hk==='sr'?4:3.5,color:'#fff',weight:.8,fillColor:HIC[hk],fillOpacity:1})}
@@ -575,7 +585,7 @@ function start(){
  opt('fZone',[...new Set(PIPES.features.concat(MH.features).map(x=>x.properties.zone).filter(z=>z!=null))].sort((a,b)=>a-b).map(z=>[String(z),'Zona '+z]));
  opt('fCls',['Primary','Secondary','Tertiary'].map(c=>[c,c]));
  osm.addTo(map);bmDraw();map.fitBounds(L.geoJSON(PIPES).getBounds().pad(.05));render(false);lyDraw();
- Promise.allSettled(SP.map(s=>get('data/'+s.f+'.geojson').then(r=>{r.j.features=r.j.features.filter(x=>x.geometry);buildStatic(s,r.j)}))).then(()=>{lyDraw();syncStatic();legend();hiTable();if(FOTO_URL&&FOTOS.length){FOTOS.forEach(p=>{p._l=undefined});fotoRender()}});
+ Promise.allSettled(SP.map(s=>get('data/'+s.f+'.geojson').then(r=>{r.j.features=r.j.features.filter(x=>x.geometry);buildStatic(s,r.j);if(s.k==='tp')tpProg(r.j)}))).then(()=>{lyDraw();syncStatic();legend();hiTable();if(FOTO_URL&&FOTOS.length){FOTOS.forEach(p=>{p._l=undefined});fotoRender()}});
 }
 Promise.all([get('data/v_lateral_pipe.geojson'),get('data/v_manhole.geojson')]).then(([a,b])=>{
  PIPES=norm(a.j);MH=norm(b.j);
