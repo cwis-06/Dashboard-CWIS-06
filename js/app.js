@@ -16,7 +16,7 @@ const FOTO_URL='https://script.google.com/macros/s/AKfycbztnQkhdsc40_oCW97_k-kqZ
 const FOTO_AUTO=false;   // true: jendela "Foto kegiatan terbaru" muncul otomatis sekali per sesi (tidak saat panduan pertama kali tampil). Dimatikan di HP terlepas dari ini (lihat FOTO_AUTO_MOBILE).
 const FOTO_AUTO_MOBILE=false;   // sama, tapi khusus layar sempit (<=820px). Biarkan false: di HP jendela besar ini mengganggu saat baru buka halaman.
 const SHOW_HI_STATS=false;   // false: sembunyikan jumlah SR dan HI (baris "House inlet" di ringkasan progres, tabel "House inlet per zona", dan angka di daftar layer). true: tampilkan lagi.
-const SHOW_PROGRESS=false;   // false: sembunyikan tampilan progres (tombol Progres, ringkasan Progres Pekerjaan Pipa, filter Status, Progres per zona, serta persen progres di popup dan laporan). Tanggal rencana tetap tampil. true: tampilkan lagi.
+const SHOW_PROGRESS=true;   // false: sembunyikan tampilan progres (tombol Progres, ringkasan Progres Pekerjaan Pipa, filter Status, Progres per zona, serta persen progres di popup dan laporan). Tanggal rencana tetap tampil. true: tampilkan lagi.
 const HI_MINZ=18;   // house inlet (SR/HI/HIP) baru tampil mulai zoom ini. Naikkan bila masih padat, turunkan bila ingin lebih cepat muncul.
 /* ======================= */
 const map=L.map('map',{preferCanvas:true,zoomControl:false,maxZoom:28,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,renderer:L.canvas({tolerance:5})});L.control.zoom({position:'topright'}).addTo(map);
