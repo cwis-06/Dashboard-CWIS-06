@@ -32,7 +32,7 @@ CREATE OR REPLACE FUNCTION sewer.tp_status_sheet(s text) RETURNS text LANGUAGE s
         WHEN s IS NULL OR btrim(s) = ''                  THEN NULL
         WHEN lower(s) ~ 'belum|rencana'                  THEN 'Direncanakan'
         WHEN lower(s) ~ 'selesai|sudah|done'             THEN 'Selesai'
-        WHEN lower(s) ~ 'tunda|pending|batal'            THEN 'Ditunda'
+        WHEN lower(s) ~ 'tunda|pending|batal|hold'       THEN 'Ditunda'
         WHEN lower(s) ~ 'gali|proses|berjalan|progres'   THEN 'Digali'
         ELSE 'Direncanakan' END
 $$;
